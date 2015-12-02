@@ -15,7 +15,7 @@
 
 #define EDIT_THRESHOLD 20
 
-class ImageMask : public ofPolyline, public BaseHasCanvas {
+class ofxImageMask : public ofPolyline, public BaseHasCanvas {
 protected:
     float width, height;
     
@@ -26,7 +26,7 @@ protected:
     ofShader shader;
     
 public:
-    ImageMask() {}
+    ofxImageMask() {}
     
     void setup(float w=ofGetWidth(), float h=ofGetHeight()) {
         width = w;
@@ -180,6 +180,8 @@ public:
     void mouseReleased(ofMouseEventArgs &args) {}
     void mouseMoved(ofMouseEventArgs &args) {}
     void mouseScrolled(ofMouseEventArgs &args) {}
+    void mouseEntered(ofMouseEventArgs &args) {}
+    void mouseExited(ofMouseEventArgs &args) {}
     
     
 #pragma mark -
