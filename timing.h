@@ -6,14 +6,13 @@ struct _Timer {
 	// we're using time_points and durations because VS can't do arithmetic on durations
 	time_point<system_clock> startTime;
 	T timeTaken;
+
 	void start() {
 		startTime = system_clock::now();
 	}
 
 	void end() {
 		timeTaken = duration_cast<T>(system_clock::now() - startTime);
-
-		//cout << timeTaken.count() << endl;
 	}
 };
 
