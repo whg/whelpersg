@@ -1,5 +1,7 @@
 #pragma once
 
+#include <valarray>
+
 template<typename T>
 class Smoother {
     int reach;
@@ -13,7 +15,7 @@ public:
     void setReach(int n) { reach = n; }
     T& getCurrent() { return current; }
 
-    void add(const T const &point) {
+    virtual void add(const T &point) {
         data.push_back(point);
 
         while (data.size() > reach) {
@@ -23,7 +25,7 @@ public:
         calcCurrent();
     }
 
-    void calcCurrent() {
+    virtual void calcCurrent() {
         T sum = 0;
         for (auto &p : data) {
             sum += p;
@@ -31,4 +33,24 @@ public:
         current = sum / float(reach);
     }
 
+};
+
+template<typename T>
+class MultiSmoother : public Smoother {
+protected:
+    std::deque<std::vallarray> data;
+public:
+
+    virtual void add(const T &point) {
+        std::valarray<float> va(&point[0], point.size());
+        Smoother::add(va);
+    }
+
+    virtual void calcCurrent() {
+        
+        T sum = std::vector(data.front().size(), 0);
+        for (auto &iter : data) {
+            for ()
+        }
+    }
 };
