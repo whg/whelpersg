@@ -285,6 +285,7 @@ protected:
         static long lastPointsSum = 0;
         
         auto &points = getVertices();
+		if (points.size() == 0) return false;
         
         int nbytes = points.size() * sizeof(points);
         unsigned char *bytes = (unsigned char*) &points[0];
