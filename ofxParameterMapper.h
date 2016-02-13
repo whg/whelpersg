@@ -18,7 +18,7 @@ public:
     void newOscMessage(ofxOscCenterNewMessageArgs &args);
     
     template<typename T>
-    void modifyParams(const vector<ofAbstractParameter*> &params, T v, T min, T max);
+    void modifyParams(const vector<ofxBaseGui*> &params, T v, T min, T max);
     
     struct BaseMapper {
         
@@ -57,21 +57,24 @@ public:
         Limits(ofxBaseGui &guiElem, string path);
     };
     
+    void save();
+    void load();
+    
 private:
     ofxParameterMapper() {}
     void setup();
     
-    map<string, unique_ptr<Sources>> mSourceMap;
+    map<string, unique_ptr<Sources>> mSourceMap; // (path, sources)
     map<ofAbstractParameter*, unique_ptr<Limits>> mLimitsMap;
-    map<string, vector<ofAbstractParameter*>> mParamMap;
+    map<string, vector<ofxBaseGui*>> mParamMap; // (oscCommand, list of params)
     
 };
 
 
 template<typename T>
-void ofxParameterMapper::modifyParams(const vector<ofAbstractParameter*> &params, T v, T min, T max) {
-    for (auto *param : params) {
-        
+void ofxParameterMapper::modifyParams(const vector<ofxBaseGui*> &baseGuis, T v, T min, T max) {
+    for (auto *bg : baseGuis) {
+        auto *param = &bg->getParameter();
         auto type = param->type();
         
         if (type == "11ofParameterIiE") {

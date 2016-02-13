@@ -3,6 +3,7 @@
 #include "ofxPanelManager.h"
 #include "ofxOscCenter.h"
 
+
 #define SOURCE_PREFIX "~"
 
 shared_ptr<ofxParameterMapper> parameterMapper = nullptr;
@@ -18,6 +19,8 @@ shared_ptr<ofxParameterMapper> ofxParameterMapper::get() {
 void ofxParameterMapper::setup() {
     ofAddListener(ofxBaseGui::guiSelectedEvent, this, &ofxParameterMapper::guiSelected);
     ofAddListener(ofxOscCenter::newMessageEvent, this, &ofxParameterMapper::newOscMessage);
+    
+    load();
 }
 
 void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
@@ -54,15 +57,15 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
             for (auto &oscSource : sources->mOscSources) {
                 if (&oscSource.get() == &b) {
                     ofxOscCenter::Command command { oscSource.getFirstParent().getName(), oscSource.getName() };
-                    auto *param = &sources->guiElem.getParameter();
-                    
+//                    auto *param = &sources->guiElem.getParameter();
+                    auto *bg = &sources->guiElem;
                     if (b) {
-                        mParamMap[command.toString()].push_back(param);
+                        mParamMap[command.toString()].push_back(bg);
                     }
                     else {
                         auto &params = mParamMap[command.toString()];
                         for (auto it = params.begin(); it != params.end(); ++it) {
-                            if (*it == param) {
+                            if (*it == bg) {
                                 params.erase(it);
                                 break;
                             }
@@ -74,6 +77,8 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
             }
         }
     }
+    
+    save();
 }
 
 void ofxParameterMapper::updateLimitMapping(float& v) {
@@ -101,6 +106,79 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
             modifyParams(mParamMap[commandString], value, 0.0f, 1.0f);
         }
     }
+}
+
+void ofxParameterMapper::save() {
+
+    ofXml xml;
+    xml.addChild("ofxParameterMapper");
+    xml.setTo("ofxParameterMapper");
+    xml.setAttribute("version", "0.1");
+    
+    xml.addChild("param-maps");
+    xml.setTo("param-maps");
+    
+    for (auto &pair : mParamMap) {
+        auto command  = pair.first;
+
+        for (auto &bg : pair.second) {
+            ofXml map;
+            map.addChild("map");
+            map.setTo("map");
+            map.addValue("command", command);
+            map.addValue("param-path", getGuiPath(bg));
+            xml.addXml(map);
+        }
+    }
+    
+    
+    xml.save("parameter-map.xml");
+
+}
+
+void ofxParameterMapper::load() {
+    
+    ofXml xml;
+    
+    string filename = "parameter-map.xml";
+    bool success = xml.load(filename);
+    
+    if (!success) {
+        ofLogError() << "can't load from " << filename;
+        return;
+    }
+    
+    xml.setTo("ofxParameterMapper");
+    float version = ofToFloat(xml.getAttribute("version"));
+    
+    if (version >= 0.1) {
+        xml.setTo("//param-maps");
+        int n = xml.getNumChildren();
+        
+        for (int i = 0; i < n; i++) {
+            xml.setTo("//param-maps");
+            xml.setToChild(i);
+            string commandString = xml.getValue("command");
+            string path = xml.getValue("param-path");
+            auto &guiElem = ofxPanelManager::get().getGuiElem(path);
+            
+            if (mSourceMap.count(path) == 0) {
+                mSourceMap.emplace(path, unique_ptr<Sources>(new Sources(guiElem, path)));
+            }
+            
+            // do we need to make sure this isn't added twice?
+            mSourceMap[path]->addParameter(ofxOscCenter::Command::fromString(commandString));
+            
+            mParamMap[commandString].push_back(&guiElem);
+        }
+    }
+    else {
+        ofLogError() << "can't decode file version " << version;
+        return;
+    }
+    
+    ofLogNotice() << "loaded from " << filename;
+
 }
 
 
