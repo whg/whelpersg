@@ -1,11 +1,3 @@
- //
-//  ofxParameterMapper.cpp
-//  desperados studio test
-//
-//  Created by Will Gallia on 11/02/2016.
-//
-//
-
 #include "ofxParameterMapper.h"
 
 #include "ofxPanelManager.h"
@@ -23,6 +15,7 @@ shared_ptr<ofxParameterMapper> ofxParameterMapper::get() {
 
 void ofxParameterMapper::setup() {
     ofAddListener(ofxBaseGui::guiSelectedEvent, this, &ofxParameterMapper::guiSelected);
+    ofAddListener(ofxOscCenter::newMessageEvent, this, &ofxParameterMapper::newOscMessage);
 }
 
 void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
@@ -31,31 +24,67 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
         
         auto &guiElem = ofxPanelManager::get().getGuiElem(path);
         
-        sourceMap.emplace(path, unique_ptr<Sources>(new Sources(guiElem, path)));
+        mSourceMap.emplace(path, unique_ptr<Sources>(new Sources(guiElem, path)));
         
-        ofxPanelManager::get().addPanel(sourceMap[path]->getPanel());
+        ofxPanelManager::get().addPanel(mSourceMap[path]->getPanel());
         
     }
 }
 
+/// Look through all the sources to find the bool that matches the callback
 void ofxParameterMapper::updateOscSourceMapping(bool &b) {
     
-    for (auto &pair : sourceMap) {
+    for (auto &pair : mSourceMap) {
         
         const auto &sources = pair.second;
         for (auto &oscSource : sources->mOscSources) {
             if (&oscSource.get() == &b) {
-                cout << "gotcha: " << oscSource.getName() << " : " << oscSource.getFirstParent().getName() << endl;
-                subscribeParameterToOsc(sources->guiElem.getParameter(), oscSource.getName());
+                ofxOscCenter::Command command { oscSource.getFirstParent().getName(), oscSource.getName() };
+                if (b) {
+                    mParamMap[command.toString()] = &sources->guiElem.getParameter();
+
+                }
+                else {
+                    mParamMap.erase(command.toString());
+                }
             }
         }
     }
 }
 
-void ofxParameterMapper::subscribeParameterToOsc(ofAbstractParameter &param, string source) {
+
+
+void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
     
+    auto commandString = args.command.toString();
     
+    if (mParamMap.count(commandString) != 0) {
+        
+        if (args.command.address.find("/MIDI/note") != string::npos) {
+            
+            int velocity = args.message.getArgAsInt(2);
+            
+            auto *param = mParamMap[commandString];
+            auto type = param->type();
+            
+            if (type == "11ofParameterIiE") {
+                auto &intParam = param->cast<int>();
+                intParam.set(ofMap(velocity, 0, 127, intParam.getMin(), intParam.getMax()));
+            }
+            else if (type == "11ofParameterIfE") {
+                auto &floatParam = param->cast<float>();
+                floatParam.set(ofMap(velocity, 0, 127, floatParam.getMin(), floatParam.getMax()));
+            }
+            else if (type == "11ofParameterIhE") {
+                auto &ucharParam = param->cast<unsigned char>();
+                ucharParam.set(ofMap(velocity, 0, 127, ucharParam.getMin(), ucharParam.getMax()));
+            }
+            
+            
+        }
+    }
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 /// Sources
@@ -64,16 +93,9 @@ ofxParameterMapper::Sources::Sources(ofxBaseGui &guiElem, string path): guiElem(
     midiChannel.set("midi channel", 10, 0, 127);
     
     // Osc
-    
     auto oscCommands = ofxOscCenter::get().getReceivedCommands();
     for (auto &command : oscCommands) {
         addParameter(command);
-//        if (mTracks.count(command.track) == 0) {
-//            mTracks[command.track].setup(command.track);
-//        }
-//        mOscSources.push_back(ofParameter<bool>(command.address, false));
-//
-//        mTracks[command.track].add(mOscSources.back());
 
     }
     
@@ -84,26 +106,7 @@ ofxParameterMapper::Sources::Sources(ofxBaseGui &guiElem, string path): guiElem(
 
     }
     
-//    auto oscTracks = ofxOscCenter::get().getReceivedTracks();
-//
-//    auto oscSources = ofxOscCenter::get().getReceivedAddresses();
-////    vector<string> oscSources = { "hi there", "something", "otehr thigs" };
-//
-//    mOscGroup.setName("Osc sources");
-//    for (auto &track : oscTracks) {
-//        
-//
-//        
-//        for (auto &source : oscSources) {
-//            
-//            mOscSources.push_back(ofParameter<bool>(source, false));
-//            auto &param = mOscSources.back();
-//            
-//            param.addListener(parameterMapper.get(), &ofxParameterMapper::updateOscSourceMapping);
-//            mOscGroup.add(param);
-//        }
-//        
-//    }
+
     ofAddListener(ofxOscCenter::newCommandEvent, this, &ofxParameterMapper::Sources::updateOscList);
 }
 
@@ -128,28 +131,7 @@ shared_ptr<ofxPanel> ofxParameterMapper::Sources::getPanel() {
 
 void ofxParameterMapper::Sources::updateOscList(ofxOscCenterCommandArgs &args) {
     
-//    auto command = args.command;
     addParameter(args.command);
-
-//    mOscSources.push_back(ofParameter<bool>(command.address, false));
-////    mOscGroup.add(mOscSources.back());
-//
-//    if (mTracks.count(command.track) == 0) {
-//        mTracks[command.track].setup(command.track);
-//        mOscGroup.add(&mTracks[command.track]);
-//    }
-//    
-//    mTracks[args.command.track].add(mOscSources.back());
-
-//    mOscGroup.maximizeAll();
-//    mTracks[args.command.track].minimize();
-//    mTracks[args.command.track].maximizeAll();
-    
-//    if (mTracks.count(args.command.track) == 0) {
-//        auto &group = mTracks[args.command.track];
-//        
-//    }
-
     getPanel();
 }
 

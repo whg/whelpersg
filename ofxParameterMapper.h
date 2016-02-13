@@ -12,8 +12,8 @@ public:
     void guiSelected(ofxGuiSelectedArgs &args);
     
     void updateOscSourceMapping(bool& b);
-    
-    void subscribeParameterToOsc(ofAbstractParameter &param, string source);
+        
+    void newOscMessage(ofxOscCenterNewMessageArgs &args);
     
     struct Sources {
         
@@ -36,9 +36,14 @@ public:
         void something(bool& p) {}
     };
     
+    struct Limits {
+        
+    };
+    
 private:
     ofxParameterMapper() {}
     void setup();
     
-    map<string, unique_ptr<Sources>> sourceMap;
+    map<string, unique_ptr<Sources>> mSourceMap;
+    map<string, ofAbstractParameter*> mParamMap;
 };
