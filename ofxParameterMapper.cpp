@@ -109,7 +109,8 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
     
     if (mParamMap.count(commandString) != 0) {
         
-        if (args.command.address.find("/MIDI/note") != string::npos) {
+        if (args.command.address.find("/MIDI/") != string::npos) {
+            // handle MIDI cc too, which has the value byte in postion 2 too
             
             int velocity = args.message.getArgAsInt(2);
             modifyParams(mParamMap[commandString], velocity, 0, 127, commandString);
@@ -289,7 +290,7 @@ void ofxParameterMapper::setOutputLimitMax(float &v) {
 
 ofxParameterMapper::Sources::Sources(ofxBaseGui &guiElem, string path): ofxParameterMapper::BaseMapper(guiElem, path) {
     midiChannel.set("midi channel", 10, 0, 127);
-    titlePrefix = SOURCE_PREFIX;
+    titlePrefix = getGuiRoot(&guiElem)->getName() + SOURCE_PREFIX;
     // Osc
     auto oscCommands = ofxOscCenter::get().getReceivedCommands();
     for (auto &command : oscCommands) {
