@@ -1,14 +1,8 @@
-//
-//  ofxDmxCenter.cpp
-//  desperados studio test
-//
-//  Created by Will Gallia on 14/02/2016.
-//
-//
-
 #include "ofxDmxCenter.h"
 
 #include "Fixture.h"
+
+#include "ofxPanelManager.h"
 
 shared_ptr<ofxDmxCenter> dmxCenter = nullptr;
 
@@ -17,7 +11,6 @@ ofxDmxCenter& ofxDmxCenter::get() {
     if (dmxCenter == nullptr) {
         dmxCenter = shared_ptr<ofxDmxCenter>(new ofxDmxCenter);
         dmxCenter->setup();
-        dmxCenter->startThread();
     }
     return *dmxCenter.get();
 }
@@ -37,6 +30,10 @@ void ofxDmxCenter::setup() {
         }
     }
     
+    mPanel = make_shared<ofxPanel>();
+    mPanel->setup("DMX Center");
+
+    dmxCenter->startThread();
 }
 
 void ofxDmxCenter::threadedFunction() {
@@ -45,36 +42,44 @@ void ofxDmxCenter::threadedFunction() {
         mutex.lock();
         for (auto &fixture : mFixtures) {
             
-            auto &dmxDevice = mDevices[fixture->getDmxUniverse()];
-            const auto &parameters = fixture->getParameters();
-            int startAddress = fixture->getDmxStartAddress();
             
-            for (auto &paramPair : parameters) {
-                int address = paramPair.first + startAddress;
-                auto param = paramPair.second;
-                int value = 0;
+            try {
+                auto &dmxDevice = mDevices.at(fixture->getDmxUniverse());
+                const auto &parameters = fixture->getParameters();
+                int startAddress = fixture->getDmxStartAddress();
                 
-                if (param->type() == typeid(ofParameter<int>).name()) {
-                    dmxDevice.setLevel(address, param->cast<int>());
-                }
-                else if (param->type() == typeid(ofParameter<unsigned char>).name()) {
-                    dmxDevice.setLevel(address, param->cast<unsigned char>());
-                }
-                else if (param->type() == typeid(ofParameter<ofColor>).name()) {
-                    auto &color = param->cast<ofColor>().get();
+                for (auto &paramPair : parameters) {
+                    int address = paramPair.first + startAddress;
+                    auto param = paramPair.second;
+                    int value = 0;
                     
-                    dmxDevice.setLevel(address, color.r);
-                    dmxDevice.setLevel(address+1, color.g);
-                    dmxDevice.setLevel(address+2, color.b);
+                    if (param->type() == typeid(ofParameter<int>).name()) {
+                        dmxDevice.setLevel(address, param->cast<int>());
+                    }
+                    else if (param->type() == typeid(ofParameter<unsigned char>).name()) {
+                        dmxDevice.setLevel(address, param->cast<unsigned char>());
+                    }
+                    else if (param->type() == typeid(ofParameter<ofColor>).name()) {
+                        auto &color = param->cast<ofColor>().get();
+                        
+                        dmxDevice.setLevel(address, color.r);
+                        dmxDevice.setLevel(address+1, color.g);
+                        dmxDevice.setLevel(address+2, color.b);
+                    }
+                    
                 }
-                
-            }
+
+            } catch (const out_of_range &e) {}
+            
         }
+  
         
         mutex.unlock();
         
         for (auto &dmxPair : mDevices) {
-            dmxPair.second.update();
+            if (dmxPair.first != "-") {
+                dmxPair.second.update();
+            }
         }
         
         sleep(10);
@@ -85,6 +90,11 @@ void ofxDmxCenter::addFixture(shared_ptr<Fixture> fixture) {
     ofScopedLock lock(mutex);
     mFixtures.push_back(fixture);
     
+    auto button = make_shared<ofxButton>();
+    button->setup(fixture->getName());
+    mFixtureButtons.push_back(button);
+    button->addListener(this, &ofxDmxCenter::openFixtureGui);
+    mPanel->add(button.get());
 }
 
 void ofxDmxCenter::assignAddresses() {
@@ -92,6 +102,11 @@ void ofxDmxCenter::assignAddresses() {
     ofScopedLock lock(mutex);
     
     auto deviceIterator = mDevices.begin();
+    
+    if (deviceIterator == mDevices.end()) {
+        ofLogError("ofxDmxCenter") << "no DMX boxes connected";
+    }
+    
     int currentAddress = 0;
     
     for (auto &fixture : mFixtures) {
@@ -109,5 +124,20 @@ void ofxDmxCenter::assignAddresses() {
         fixture->setDmxUniverse(deviceIterator->first);
         currentAddress+= fixture->getNumChannels();
         
+    }
+}
+
+void ofxDmxCenter::openFixturesGui() {
+    
+    ofxPanelManager::get().addPanel(mPanel);
+}
+
+void ofxDmxCenter::openFixtureGui(bool &b) {
+    int i = 0;
+    for (auto &fixture : mFixtureButtons) {
+        if (&b == &fixture->getParameter().cast<bool>().get()) {
+            ofxPanelManager::get().addPanel(mFixtures[i]->getPanel());
+        }
+        i++;
     }
 }

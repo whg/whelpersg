@@ -2,6 +2,7 @@
 
 #include "ofThread.h"
 #include "ofxDmx.h"
+#include "ofxGui.h"
 
 class Fixture;
 
@@ -13,14 +14,19 @@ public:
     void addFixture(shared_ptr<Fixture> fixture);
     void assignAddresses();
     
+    void openFixturesGui();
+    void openFixtureGui(bool &b);
+    
 protected:
     
     void threadedFunction();
 
-
     map<string, ofxDmx> mDevices;
     vector<shared_ptr<Fixture>> mFixtures;
-
+    
+    vector<shared_ptr<ofxButton>> mFixtureButtons;
+    shared_ptr<ofxPanel> mPanel;
+    
 private:
     void setup();
     ofMutex mutex;
