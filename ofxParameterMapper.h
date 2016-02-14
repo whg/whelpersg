@@ -12,8 +12,6 @@ public:
     void guiSelected(ofxGuiSelectedArgs &args);
     
     void updateOscSourceMapping(bool& b);
-    void updateLimitMapping(float& v);
-
     
     void newOscMessage(ofxOscCenterNewMessageArgs &args);
     
@@ -49,13 +47,23 @@ public:
         
     };
     
-    struct Limits : public BaseMapper {
-        ofParameter<float> inputMin, inputMax, outputMin, outputMax;
-        Limits(ofxBaseGui &guiElem, string commandString);
+    struct OutputLimits : public BaseMapper {
+        ofParameter<float> outputMin, outputMax;
+        OutputLimits(ofxBaseGui &guiElem, string path);
     };
+
+    
+    struct InputLimits : public BaseMapper {
+        ofParameter<float> inputMin, inputMax;
+        InputLimits(ofxBaseGui &guiElem, string commandString);
+    };
+    
     
     void save();
     void load();
+    
+    void setOutputLimitMin(float &v);
+    void setOutputLimitMax(float &v);
     
     static ofMutex addSourceMutex;
     
@@ -64,58 +72,40 @@ private:
     void setup();
     
     map<string, unique_ptr<Sources>> mSourceMap; // (path, sources)
-    map<pair<string, ofxBaseGui*>, unique_ptr<Limits>> mLimitsMap;
+    map<pair<string, ofxBaseGui*>, unique_ptr<InputLimits>> mLimitsMap;
     map<string, vector<ofxBaseGui*>> mParamMap; // (oscCommand, list of params)
+    
+    map<string, unique_ptr<OutputLimits>> mParameterLimits;
     
 };
 
 
 template<typename T>
 void ofxParameterMapper::modifyParams(const vector<ofxBaseGui*> &baseGuis, T v, float min, float max, string &commandString) {
-    
 
     for (auto *bg : baseGuis) {
     
         float outputMin, outputMax;
-        bool limitsSet = false;
         auto key = make_pair(commandString, bg);
         if (mLimitsMap.count(key) > 0) {
             min = mLimitsMap[key]->inputMin;
             max = mLimitsMap[key]->inputMax;
-            outputMax = mLimitsMap[key]->outputMax;
-            outputMin = mLimitsMap[key]->outputMin;
-            limitsSet = true;
         }
     
         auto *param = &bg->getParameter();
         auto type = param->type();
         
-        if (type == "11ofParameterIiE") {
+        if (type == typeid(ofParameter<int>).name()) {
             auto &intParam = param->cast<int>();
-            if (!limitsSet) {
-                intParam.set(ofMap(v, min, max, intParam.getMin(), intParam.getMax()));
-            }
-            else {
-                intParam.set(ofMap(v, min, max, outputMin, outputMax));
-            }
+            intParam.set(ofMap(v, min, max, intParam.getMin(), intParam.getMax()));
         }
-        else if (type == "11ofParameterIfE") {
+        else if (type == typeid(ofParameter<float>).name()) {
             auto &floatParam = param->cast<float>();
-            if (!limitsSet) {
-                floatParam.set(ofMap(v, min, max, floatParam.getMin(), floatParam.getMax()));
-            }
-            else {
-                floatParam.set(ofMap(v, min, max, outputMin, outputMax));
-            }
+            floatParam.set(ofMap(v, min, max, floatParam.getMin(), floatParam.getMax()));
         }
-        else if (type == "11ofParameterIhE") {
+        else if (type == typeid(ofParameter<unsigned char>).name()) {
             auto &ucharParam = param->cast<unsigned char>();
-            if (!limitsSet) {
-                ucharParam.set(ofMap(v, min, max, ucharParam.getMin(), ucharParam.getMax()));
-            }
-            else {
-                ucharParam.set(ofMap(v, min, max, outputMin, outputMax));
-            }
+            ucharParam.set(ofMap(v, min, max, ucharParam.getMin(), ucharParam.getMax()));
         }
         
     }

@@ -26,9 +26,11 @@ void ofxParameterMapper::setup() {
 }
 
 void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
+
+    auto path = getGuiPath(args.baseGui);
+    auto &guiElem = ofxPanelManager::get().getGuiElem(path);
+
     if (args.type == OF_MOUSE_BUTTON_RIGHT) {
-        auto path = getGuiPath(args.baseGui);
-        auto &guiElem = ofxPanelManager::get().getGuiElem(path);
         guiElem.path = path;
         
         if (path.find(SOURCE_PREFIX) != string::npos) {
@@ -42,7 +44,7 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
             
             auto key = make_pair(command.toString(), &toEffectElem);
             if (mLimitsMap.count(key) == 0) {
-                mLimitsMap.emplace(key, unique_ptr<Limits>(new Limits(guiElem, command.toString())));
+                mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, command.toString())));
             }
             
             ofxPanelManager::get().addPanel(mLimitsMap[key]->getPanel());
@@ -56,6 +58,13 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
 
         }
         
+    }
+    else if (args.type == OF_MOUSE_BUTTON_MIDDLE) {
+        if (mParameterLimits.count(path) == 0) {
+            mParameterLimits.emplace(path, unique_ptr<OutputLimits>(new OutputLimits(guiElem, path)));
+        }
+        ofxPanelManager::get().addPanel(mParameterLimits[path]->getPanel());
+
     }
 }
 
@@ -92,12 +101,6 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
     }
     
     save();
-}
-
-void ofxParameterMapper::updateLimitMapping(float& v) {
-    for (auto &pair : mLimitsMap) {
-        
-    }
 }
 
 
@@ -157,8 +160,6 @@ void ofxParameterMapper::save() {
         map.addValue("key", pair.first.first + "^" + getGuiPath(pair.first.second));
         map.addValue("inputMin", pair.second->inputMin);
         map.addValue("inputMax", pair.second->inputMax);
-        map.addValue("outputMin", pair.second->outputMin);
-        map.addValue("outputMax", pair.second->outputMax);
         map.addValue("path", getGuiPath(&pair.second->guiElem));
         xml.addXml(map);
     }
@@ -224,12 +225,10 @@ void ofxParameterMapper::load() {
             auto key = make_pair(commandString, &effectingGuiElem);
             auto &guiElem = ofxPanelManager::get().getGuiElem(xml.getValue("path"));
             
-            mLimitsMap.emplace(key, unique_ptr<Limits>(new Limits(guiElem, commandString)));
+            mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, commandString)));
             
             mLimitsMap[key]->inputMin = xml.getFloatValue("inputMin");
             mLimitsMap[key]->inputMax = xml.getFloatValue("inputMax");
-            mLimitsMap[key]->outputMin = xml.getFloatValue("outputMin");
-            mLimitsMap[key]->outputMax = xml.getFloatValue("outputMax");
 
             
         }
@@ -243,6 +242,48 @@ void ofxParameterMapper::load() {
 
 }
 
+
+void ofxParameterMapper::setOutputLimitMin(float &v) {
+    for (auto &pair : mParameterLimits) {
+        if (&pair.second->outputMin.get() == &v) {
+            auto &param = pair.second->guiElem.getParameter();
+            
+            if (param.type() == typeid(ofParameter<float>).name()) {
+                param.cast<float>().setMin(v);
+            }
+            else if (param.type() == typeid(ofParameter<int>).name()) {
+                param.cast<int>().setMin(int(v));
+            }
+            else if (param.type() == typeid(ofParameter<unsigned char>).name()) {
+                param.cast<unsigned char>().setMin(int(v));
+            }
+            
+            pair.second->guiElem.setNeedsRedraw();
+            return;
+        }
+    }
+}
+
+void ofxParameterMapper::setOutputLimitMax(float &v) {
+    for (auto &pair : mParameterLimits) {
+        if (&pair.second->outputMax.get() == &v) {
+            auto &param = pair.second->guiElem.getParameter();
+            
+            if (param.type() == typeid(ofParameter<float>).name()) {
+                param.cast<float>().setMax(v);
+            }
+            else if (param.type() == typeid(ofParameter<int>).name()) {
+                param.cast<int>().setMax(int(v));
+            }
+            else if (param.type() == typeid(ofParameter<unsigned char>).name()) {
+                param.cast<unsigned char>().setMax(int(v));
+            }
+            
+            pair.second->guiElem.setNeedsRedraw();
+            return;
+        }
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 /// Sources
@@ -325,13 +366,26 @@ void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &comm
 }
 
 
-ofxParameterMapper::Limits::Limits(ofxBaseGui &guiElem, string commandString): ofxParameterMapper::BaseMapper(guiElem, commandString) {
+ofxParameterMapper::OutputLimits::OutputLimits(ofxBaseGui &guiElem, string path): ofxParameterMapper::BaseMapper(guiElem, path) {
+    
+    getPanel();
+    outputMin.set("output min", 0, 0, 255);
+    outputMax.set("output max", 127, 0, 255);
+    
+    outputMin.addListener(parameterMapper.get(), &ofxParameterMapper::setOutputLimitMin);
+    outputMax.addListener(parameterMapper.get(), &ofxParameterMapper::setOutputLimitMax);
+    
+    panel->add(outputMin);
+    panel->add(outputMax);
+    
+    cout << "added base limit " << endl;
+}
+
+ofxParameterMapper::InputLimits::InputLimits(ofxBaseGui &guiElem, string commandString): ofxParameterMapper::BaseMapper(guiElem, commandString) {
 
     getPanel();
     panel->add(inputMin.set("input min", 0, 0, 127));
     panel->add(inputMax.set("input max", 127, 0, 127));
-    panel->add(outputMin.set("output min", 0, 0, 255));
-    panel->add(outputMax.set("output max", 127, 0, 255));
     
     cout << "added limit " << commandString << endl;
 }
