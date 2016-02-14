@@ -79,7 +79,7 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
             for (auto &oscSource : sources->mOscSources) {
                 if (&oscSource.get() == &b) {
                     ofxOscCenter::Command command { oscSource.getFirstParent().getName(), oscSource.getName() };
-//                    auto *param = &sources->guiElem.getParameter();
+
                     auto *bg = &sources->guiElem;
                     if (b) {
                         mParamMap[command.toString()].push_back(bg);
@@ -92,8 +92,7 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
                                 break;
                             }
                         }
-//                        auto it = mParamMap[command.toString()].
-//                        mParamMap.erase(command.toString());
+
                     }
                 }
             }
@@ -298,14 +297,6 @@ ofxParameterMapper::Sources::Sources(ofxBaseGui &guiElem, string path): ofxParam
 
     }
     
-    mOscGroup.setup("Osc sources");
-
-    for (auto &pair : mTracks) {
-        mOscGroup.add(&pair.second);
-
-    }
-    
-    getPanel()->add(&mOscGroup);
     ofAddListener(ofxOscCenter::newCommandEvent, this, &ofxParameterMapper::Sources::updateOscList);
     
     cout << "added with path: " << path << endl;
@@ -338,7 +329,8 @@ void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &comm
 
     if (mTracks.count(command.track) == 0) {
         mTracks[command.track].setup(command.track);
-        mOscGroup.add(&mTracks[command.track]);
+//        mOscGroup.add(&mTracks[command.track]);
+        getPanel()->add(&mTracks[command.track]);
     }
     else {
         if (mTracks[command.track].getControl(command.address) != nullptr) {

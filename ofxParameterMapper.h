@@ -14,7 +14,7 @@ public:
     void updateOscSourceMapping(bool& b);
     
     void newOscMessage(ofxOscCenterNewMessageArgs &args);
-    
+        
     template<typename T>
     void modifyParams(const vector<ofxBaseGui*> &baseGuis, T v, float min, float max, string &commandString);
     
