@@ -7,6 +7,8 @@
 #define SOURCE_PREFIX "~"
 
 shared_ptr<ofxParameterMapper> parameterMapper = nullptr;
+ofMutex ofxParameterMapper::addSourceMutex;
+
 
 shared_ptr<ofxParameterMapper> ofxParameterMapper::get() {
     if (parameterMapper == nullptr) {
@@ -28,19 +30,28 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
         auto path = getGuiPath(args.baseGui);
         auto &guiElem = ofxPanelManager::get().getGuiElem(path);
         guiElem.path = path;
-        cout << guiElem.getName() << endl;
         
         if (path.find(SOURCE_PREFIX) != string::npos) {
             
-            auto toEffect = getGuiRoot(&guiElem)->effectingPath;
-            auto &toEffectElem = ofxPanelManager::get().getGuiElem(toEffect);
-            auto *key = &toEffectElem.getParameter();
-            mLimitsMap.emplace(key, unique_ptr<Limits>(new Limits(toEffectElem, path)));
+            auto toEffectPath = getGuiRoot(&guiElem)->effectingPath;
+            auto &toEffectElem = ofxPanelManager::get().getGuiElem(toEffectPath);
+
+            
+            auto parts = ofSplitString(path, PATH_DELIMITER);
+            ofxOscCenter::Command command { parts[parts.size()-2], parts[parts.size()-1] };
+            
+            auto key = make_pair(command.toString(), &toEffectElem);
+            if (mLimitsMap.count(key) == 0) {
+                mLimitsMap.emplace(key, unique_ptr<Limits>(new Limits(guiElem, command.toString())));
+            }
+            
             ofxPanelManager::get().addPanel(mLimitsMap[key]->getPanel());
 
         }
         else {
-            mSourceMap.emplace(path, unique_ptr<Sources>(new Sources(guiElem, path)));
+            if (mSourceMap.count(path) == 0) {
+                mSourceMap.emplace(path, unique_ptr<Sources>(new Sources(guiElem, path)));
+            }
             ofxPanelManager::get().addPanel(mSourceMap[path]->getPanel());
 
         }
@@ -50,6 +61,8 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
 
 /// Look through all the sources to find the bool that matches the callback
 void ofxParameterMapper::updateOscSourceMapping(bool &b) {
+    
+    ofScopedLock lock(addSourceMutex);
     
     for (auto &pair : mSourceMap) {
         
@@ -97,13 +110,13 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
         if (args.command.address.find("/MIDI/note") != string::npos) {
             
             int velocity = args.message.getArgAsInt(2);
-            modifyParams(mParamMap[commandString], velocity, 0, 127);
+            modifyParams(mParamMap[commandString], velocity, 0, 127, commandString);
             
         }
         else if (args.command.address.find("/PC") != string::npos) {
             
             float value = args.message.getArgAsFloat(1);
-            modifyParams(mParamMap[commandString], value, 0.0f, 1.0f);
+            modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);
         }
     }
 }
@@ -130,6 +143,25 @@ void ofxParameterMapper::save() {
             xml.addXml(map);
         }
     }
+
+    xml.setToParent();
+    xml.addChild("limits-maps");
+    xml.setTo("limits-maps");
+
+    
+    for (auto &pair : mLimitsMap) {
+        
+        ofXml map;
+        map.addChild("map");
+        map.setTo("map");
+        map.addValue("key", pair.first.first + "^" + getGuiPath(pair.first.second));
+        map.addValue("inputMin", pair.second->inputMin);
+        map.addValue("inputMax", pair.second->inputMax);
+        map.addValue("outputMin", pair.second->outputMin);
+        map.addValue("outputMax", pair.second->outputMax);
+        map.addValue("path", getGuiPath(&pair.second->guiElem));
+        xml.addXml(map);
+    }
     
     
     xml.save("parameter-map.xml");
@@ -151,13 +183,15 @@ void ofxParameterMapper::load() {
     xml.setTo("ofxParameterMapper");
     float version = ofToFloat(xml.getAttribute("version"));
     
+    int n;
     if (version >= 0.1) {
         xml.setTo("//param-maps");
-        int n = xml.getNumChildren();
+        n = xml.getNumChildren();
         
         for (int i = 0; i < n; i++) {
             xml.setTo("//param-maps");
             xml.setToChild(i);
+            
             string commandString = xml.getValue("command");
             string path = xml.getValue("param-path");
             auto &guiElem = ofxPanelManager::get().getGuiElem(path);
@@ -167,9 +201,37 @@ void ofxParameterMapper::load() {
             }
             
             // do we need to make sure this isn't added twice?
-            mSourceMap[path]->addParameter(ofxOscCenter::Command::fromString(commandString));
+            mSourceMap[path]->addParameter(ofxOscCenter::Command::fromString(commandString), true);
+            
+            ofxPanelManager::get().addPanel(mSourceMap[path]->getPanel(), true);
+
             
             mParamMap[commandString].push_back(&guiElem);
+        }
+        
+
+        xml.setTo("//limits-maps");
+        n = xml.getNumChildren();
+        for (int i = 0; i < n; i++) {
+            xml.setTo("//limits-maps");
+            xml.setToChild(i);
+            
+            string keyString = xml.getValue("key");
+            auto parts = ofSplitString(keyString, "^");
+            auto &effectingGuiElem = ofxPanelManager::get().getGuiElem(parts[1]);
+            auto commandString = parts[0];
+            
+            auto key = make_pair(commandString, &effectingGuiElem);
+            auto &guiElem = ofxPanelManager::get().getGuiElem(xml.getValue("path"));
+            
+            mLimitsMap.emplace(key, unique_ptr<Limits>(new Limits(guiElem, commandString)));
+            
+            mLimitsMap[key]->inputMin = xml.getFloatValue("inputMin");
+            mLimitsMap[key]->inputMax = xml.getFloatValue("inputMax");
+            mLimitsMap[key]->outputMin = xml.getFloatValue("outputMin");
+            mLimitsMap[key]->outputMax = xml.getFloatValue("outputMax");
+
+            
         }
     }
     else {
@@ -204,6 +266,8 @@ ofxParameterMapper::Sources::Sources(ofxBaseGui &guiElem, string path): ofxParam
     
     getPanel()->add(&mOscGroup);
     ofAddListener(ofxOscCenter::newCommandEvent, this, &ofxParameterMapper::Sources::updateOscList);
+    
+    cout << "added with path: " << path << endl;
 }
 
 
@@ -227,24 +291,41 @@ void ofxParameterMapper::Sources::updateOscList(ofxOscCenterCommandArgs &args) {
     getPanel();
 }
 
-void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &command) {
+void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &command, bool value) {
     
-    mOscSources.push_back(ofParameter<bool>(command.address, false));
-    
+    ofScopedLock lock(ofxParameterMapper::addSourceMutex);
+
     if (mTracks.count(command.track) == 0) {
         mTracks[command.track].setup(command.track);
         mOscGroup.add(&mTracks[command.track]);
     }
+    else {
+        if (mTracks[command.track].getControl(command.address) != nullptr) {
+            return;
+        }
+    }
+    
+    mOscSources.push_back(ofParameter<bool>(command.address, value));
+    
     
     auto &param = mOscSources.back();
     param.addListener(parameterMapper.get(), &ofxParameterMapper::updateOscSourceMapping);
 
     mTracks[command.track].add(param);
 
+    mOscGroup.minimize();
+    mOscGroup.maximize();
+    
+    for (auto &pair : mTracks) {
+        pair.second.minimize();
+        pair.second.maximize();
+    }
+    
+    cout << "added " << command.toString() << " to " << path << endl;
 }
 
 
-ofxParameterMapper::Limits::Limits(ofxBaseGui &guiElem, string path): ofxParameterMapper::BaseMapper(guiElem, path) {
+ofxParameterMapper::Limits::Limits(ofxBaseGui &guiElem, string commandString): ofxParameterMapper::BaseMapper(guiElem, commandString) {
 
     getPanel();
     panel->add(inputMin.set("input min", 0, 0, 127));
@@ -252,6 +333,5 @@ ofxParameterMapper::Limits::Limits(ofxBaseGui &guiElem, string path): ofxParamet
     panel->add(outputMin.set("output min", 0, 0, 255));
     panel->add(outputMax.set("output max", 127, 0, 255));
     
-    inputCommand = path;
-    paramToEffect = &guiElem.getParameter();
+    cout << "added limit " << commandString << endl;
 }
