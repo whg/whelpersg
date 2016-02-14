@@ -10,6 +10,10 @@
     #define GLSL120(shader)  "#version 120 \n #extension GL_ARB_texture_rectangle : enable \n" #shader
 #endif
 
+#ifndef GLSL150
+    #define GLSL150(shader)  "#version 150 \n " #shader
+#endif
+
 inline ofVec2f ofMap(ofVec2f p, ofRectangle fromRect, ofRectangle toRect){
     
     float x = ofMap(p.x, fromRect.position.x, fromRect.width, toRect.position.x, toRect.width);
