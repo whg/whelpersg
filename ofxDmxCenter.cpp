@@ -5,7 +5,7 @@
 #include "ofxPanelManager.h"
 
 shared_ptr<ofxDmxCenter> dmxCenter = nullptr;
-
+const int DEVICE_POLLING_INTERVAL = 5; // seconds
 
 ofxDmxCenter& ofxDmxCenter::get() {
     if (dmxCenter == nullptr) {
@@ -17,23 +17,35 @@ ofxDmxCenter& ofxDmxCenter::get() {
 
 void ofxDmxCenter::setup() {
 
-    ofSerial serial;
-    auto devices = serial.getDeviceList();
-    for (ofSerialDeviceInfo device : devices) {
-        string name = device.getDeviceName();
-        cout << name << endl;
-        if (name.find("tty.usb") != string::npos) {
-            auto parts = ofSplitString(name, "-");
-            string extension = parts[parts.size()-1];
-            
-            mDevices[extension].connect(name, 512);
-        }
-    }
+    checkForNewDevices();
     
     mPanel = make_shared<ofxPanel>();
     mPanel->setup("DMX Center");
 
     dmxCenter->startThread();
+}
+
+void ofxDmxCenter::checkForNewDevices() {
+    
+    ofSerial serial;
+    auto devices = serial.getDeviceList();
+    mLastDeviceCheckTime = ofGetElapsedTimef();
+    
+    ofScopedLock lock(mutex);
+    
+    for (ofSerialDeviceInfo device : devices) {
+        string name = device.getDeviceName();
+        if (name.find("tty.usb") != string::npos) {
+            auto parts = ofSplitString(name, "-");
+            string extension = parts[parts.size()-1];
+            
+            if (mDevices.count(extension) == 0) {
+            
+                mDevices[extension].connect(name, 512);
+                ofLogNotice("ofxDmxCenter") << "connected " << name << endl;
+            }
+        }
+    }
 }
 
 void ofxDmxCenter::threadedFunction() {
@@ -82,6 +94,10 @@ void ofxDmxCenter::threadedFunction() {
             if (dmxPair.first != "-") {
                 dmxPair.second.update();
             }
+        }
+        
+        if (ofGetElapsedTimef() - mLastDeviceCheckTime > DEVICE_POLLING_INTERVAL) {
+            checkForNewDevices();
         }
         
         sleep(10);
@@ -151,7 +167,7 @@ void ofxDmxCenter::assignAddresses() {
                 deviceIterator++;
             }
             else {
-                currentAddress = i;
+                currentAddress = addressToStart;
             }
         }
 

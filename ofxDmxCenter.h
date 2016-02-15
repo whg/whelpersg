@@ -20,7 +20,10 @@ public:
 protected:
     
     void threadedFunction();
-
+    
+    void checkForNewDevices();
+    float mLastDeviceCheckTime;
+    
     map<string, ofxDmx> mDevices;
     vector<shared_ptr<Fixture>> mFixtures;
     
