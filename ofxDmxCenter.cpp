@@ -68,6 +68,8 @@ void ofxDmxCenter::threadedFunction() {
                     }
                     
                 }
+                
+                
 
             } catch (const out_of_range &e) {}
             
@@ -109,9 +111,54 @@ void ofxDmxCenter::assignAddresses() {
     
     int currentAddress = 0;
     
+    map<string, set<int>> usedSlots;
     for (auto &fixture : mFixtures) {
-        if (currentAddress + fixture->getNumChannels() >= 512) {
+        auto startAddress = fixture->getDmxStartAddress();
+        if (startAddress != 0) {
+            auto numChannels = fixture->getNumChannels();
+            if (usedSlots[deviceIterator->first].count(startAddress) ||
+                usedSlots[deviceIterator->first].count(startAddress + numChannels)) {
+                deviceIterator++;
+                
+                if (deviceIterator == mDevices.end()) {
+                    ofLogError("ofxDmxCenter") << "Can't assign DMX addresses with current manual config";
+                    return;
+                }
+            }
+        
+            for (int i = 0; i < numChannels; i++) {
+                usedSlots[deviceIterator->first].insert(startAddress + i);
+                fixture->setDmxUniverse(deviceIterator->first);
+            }
+            
+        }
+    }
+    
+    for (auto &fixture : mFixtures) {
+        
+        auto lastAddress = currentAddress + fixture->getNumChannels();
+        
+        auto &usedSlotsForDevice = usedSlots[deviceIterator->first];
+        if (usedSlotsForDevice.count(currentAddress) != 0 ||
+            usedSlotsForDevice.count(lastAddress) != 0) {
+            int addressToStart = 0;
+            for (int i = lastAddress + 1; i < 512; i++) {
+                if (usedSlotsForDevice.count(i) == 0) {
+                    addressToStart = i;
+                }
+            }
+            if (addressToStart == 0) {
+                deviceIterator++;
+            }
+            else {
+                currentAddress = i;
+            }
+        }
+
+    
+        if (lastAddress >= 512) {
             deviceIterator++;
+            currentAddress = 0;
             
             if (deviceIterator == mDevices.end()) {
                 ofLogError("ofxDmxCenter") << "Exceeded DMX universes size.";
