@@ -30,9 +30,7 @@ void ofxDmxCenter::checkForNewDevices() {
     ofSerial serial;
     auto devices = serial.getDeviceList();
     mLastDeviceCheckTime = ofGetElapsedTimef();
-    
-    ofScopedLock lock(mutex);
-    
+        
     for (ofSerialDeviceInfo device : devices) {
         string name = device.getDeviceName();
         if (name.find("tty.usb") != string::npos) {
@@ -130,7 +128,9 @@ void ofxDmxCenter::assignAddresses() {
     map<string, set<int>> usedSlots;
     for (auto &fixture : mFixtures) {
         auto startAddress = fixture->getDmxStartAddress();
-        if (startAddress != 0) {
+        
+        if (fixture->getIsAddressFixed()) {
+        
             auto numChannels = fixture->getNumChannels();
             if (usedSlots[deviceIterator->first].count(startAddress) ||
                 usedSlots[deviceIterator->first].count(startAddress + numChannels)) {
@@ -151,6 +151,10 @@ void ofxDmxCenter::assignAddresses() {
     }
     
     for (auto &fixture : mFixtures) {
+    
+        if (fixture->getIsAddressFixed()) {
+            continue;
+        }
         
         auto lastAddress = currentAddress + fixture->getNumChannels();
         
@@ -158,9 +162,11 @@ void ofxDmxCenter::assignAddresses() {
         if (usedSlotsForDevice.count(currentAddress) != 0 ||
             usedSlotsForDevice.count(lastAddress) != 0) {
             int addressToStart = 0;
+            
             for (int i = lastAddress + 1; i < 512; i++) {
                 if (usedSlotsForDevice.count(i) == 0) {
                     addressToStart = i;
+                    break;
                 }
             }
             if (addressToStart == 0) {
@@ -203,4 +209,5 @@ void ofxDmxCenter::openFixtureGui(bool &b) {
         }
         i++;
     }
+    b = false;
 }
