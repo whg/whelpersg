@@ -29,7 +29,11 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
 
     auto path = getGuiPath(args.baseGui);
     auto &guiElem = ofxPanelManager::get().getGuiElem(path);
-
+    
+    if (ofGetKeyPressed(OF_KEY_CONTROL)) {
+        args.type = OF_MOUSE_BUTTON_MIDDLE;
+    }
+    
     if (args.type == OF_MOUSE_BUTTON_RIGHT) {
         guiElem.path = path;
         
@@ -44,7 +48,7 @@ void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
             
             auto key = make_pair(command.toString(), &toEffectElem);
             if (mLimitsMap.count(key) == 0) {
-                mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, command.toString())));
+                mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, path, command.toString())));
             }
             
             ofxPanelManager::get().addPanel(mLimitsMap[key]->getPanel());
@@ -223,9 +227,10 @@ void ofxParameterMapper::load() {
             auto commandString = parts[0];
             
             auto key = make_pair(commandString, &effectingGuiElem);
-            auto &guiElem = ofxPanelManager::get().getGuiElem(xml.getValue("path"));
+            auto path = xml.getValue("path");
+            auto &guiElem = ofxPanelManager::get().getGuiElem(path);
             
-            mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, commandString)));
+            mLimitsMap.emplace(key, unique_ptr<InputLimits>(new InputLimits(guiElem, path, commandString)));
             
             mLimitsMap[key]->inputMin = xml.getFloatValue("inputMin");
             mLimitsMap[key]->inputMax = xml.getFloatValue("inputMax");
@@ -361,7 +366,8 @@ void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &comm
 
 ofxParameterMapper::OutputLimits::OutputLimits(ofxBaseGui &guiElem, string path): ofxParameterMapper::BaseMapper(guiElem, path) {
     
-    getPanel();
+    titlePrefix = "+";
+    getPanel()->setName(titlePrefix + path);
     outputMin.set("output min", 0, 0, 255);
     outputMax.set("output max", 127, 0, 255);
     
@@ -374,11 +380,14 @@ ofxParameterMapper::OutputLimits::OutputLimits(ofxBaseGui &guiElem, string path)
     cout << "added base limit " << endl;
 }
 
-ofxParameterMapper::InputLimits::InputLimits(ofxBaseGui &guiElem, string commandString): ofxParameterMapper::BaseMapper(guiElem, commandString) {
+ofxParameterMapper::InputLimits::InputLimits(ofxBaseGui &guiElem, string path, string commandString): ofxParameterMapper::BaseMapper(guiElem, commandString) {
 
-    getPanel();
+    titlePrefix = "-";
+    getPanel()->setName(titlePrefix + path);
+
     panel->add(inputMin.set("input min", 0, 0, 127));
     panel->add(inputMax.set("input max", 127, 0, 127));
+    
     
     cout << "added limit " << commandString << endl;
 }

@@ -55,7 +55,7 @@ public:
     
     struct InputLimits : public BaseMapper {
         ofParameter<float> inputMin, inputMax;
-        InputLimits(ofxBaseGui &guiElem, string commandString);
+        InputLimits(ofxBaseGui &guiElem, string path, string commandString);
     };
     
     
@@ -97,15 +97,15 @@ void ofxParameterMapper::modifyParams(const vector<ofxBaseGui*> &baseGuis, T v, 
         
         if (type == typeid(ofParameter<int>).name()) {
             auto &intParam = param->cast<int>();
-            intParam.set(ofMap(v, min, max, intParam.getMin(), intParam.getMax()));
+            intParam.set(ofMap(v, min, max, intParam.getMin(), intParam.getMax(), true));
         }
         else if (type == typeid(ofParameter<float>).name()) {
             auto &floatParam = param->cast<float>();
-            floatParam.set(ofMap(v, min, max, floatParam.getMin(), floatParam.getMax()));
+            floatParam.set(ofMap(v, min, max, floatParam.getMin(), floatParam.getMax(), true));
         }
         else if (type == typeid(ofParameter<unsigned char>).name()) {
             auto &ucharParam = param->cast<unsigned char>();
-            ucharParam.set(ofMap(v, min, max, ucharParam.getMin(), ucharParam.getMax()));
+            ucharParam.set(ofMap(v, min, max, ucharParam.getMin(), ucharParam.getMax(), true));
         }
         
     }
