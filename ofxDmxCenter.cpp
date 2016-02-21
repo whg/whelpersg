@@ -33,7 +33,7 @@ void ofxDmxCenter::checkForNewDevices() {
         
     for (ofSerialDeviceInfo device : devices) {
         string name = device.getDeviceName();
-        if (name.find("tty.usb") != string::npos) {
+        if (name.find("tty.usbserial-EN") != string::npos) {
             auto parts = ofSplitString(name, "-");
             string extension = parts[parts.size()-1];
             
