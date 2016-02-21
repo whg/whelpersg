@@ -9,6 +9,14 @@
 shared_ptr<ofxParameterMapper> parameterMapper = nullptr;
 ofMutex ofxParameterMapper::addSourceMutex;
 
+ofxParameterMapper::ofxParameterMapper() {
+    
+}
+
+ofxParameterMapper::~ofxParameterMapper() {
+//    save();
+}
+
 
 shared_ptr<ofxParameterMapper> ofxParameterMapper::get() {
     if (parameterMapper == nullptr) {
@@ -121,6 +129,11 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
             
         }
         else if (args.command.address.find("/PC") != string::npos) {
+            
+            float value = args.message.getArgAsFloat(1);
+            modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);
+        }
+        else if (args.command.address.find("/vol") != string::npos) {
             
             float value = args.message.getArgAsFloat(1);
             modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);

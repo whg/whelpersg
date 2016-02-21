@@ -6,6 +6,8 @@
 
 class ofxParameterMapper {
 public:
+
+    ~ofxParameterMapper();
     
     static shared_ptr<ofxParameterMapper> get();
     
@@ -68,7 +70,7 @@ public:
     static ofMutex addSourceMutex;
     
 private:
-    ofxParameterMapper() {}
+    ofxParameterMapper();
     void setup();
     
     map<string, unique_ptr<Sources>> mSourceMap; // (path, sources)
