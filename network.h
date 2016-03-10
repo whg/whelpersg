@@ -42,8 +42,8 @@ protected:
 	bool mIsOpen;
 };
 
-using UdpClient = Client<SOCK_DGRAM>;
-using TcpClient = Client<SOCK_STREAM>;
+//using UdpClient = Client<SOCK_DGRAM>;
+//using TcpClient = Client<SOCK_STREAM>;
 
 
 
@@ -52,14 +52,14 @@ char typeLetter(T value) {
 	return 'z';
 }
 
-template <> char typeLetter(int value) { return 'i'; }
-template <> char typeLetter(unsigned char value) { return 'i'; }
-template <> char typeLetter(float value) { return 'f'; }
-template <> char typeLetter(double value) { return 'f'; }
+template <> inline char typeLetter(int value) { return 'i'; }
+template <> inline char typeLetter(unsigned char value) { return 'i'; }
+template <> inline char typeLetter(float value) { return 'f'; }
+template <> inline char typeLetter(double value) { return 'f'; }
 
 
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value>::type
+template <typename T,
+typename = typename std::enable_if<std::is_integral<T>::value>::type>
 int toOscType(T v) {
 	return static_cast<int>(v);
 }
@@ -71,7 +71,7 @@ float toOscType(T v) {
 }
 
 
-class OscSender : public UdpClient {
+class OscSender : public Client<SOCK_DGRAM> {
 	
 	enum { PADDING_SIZE = 4 };
 	
@@ -87,7 +87,7 @@ public:
 		
 		// add address
 		std::vector<char> stringData(address.begin(), address.end());
-		addPadding(stringData, address.length() % PADDING_SIZE);
+		addPadding(stringData, PADDING_SIZE - address.length() % PADDING_SIZE);
 		
 		// add type tags
 		stringData.push_back(',');
@@ -103,7 +103,7 @@ public:
 		}
 		
 		std::string dataString(stringData.begin(), stringData.end());
-		return UdpClient::sendDataString(dataString);
+		return Client<SOCK_DGRAM>::sendDataString(dataString);
 	}
 };
 
