@@ -192,16 +192,32 @@ protected:
 #endif // end USE_FFTW
 
 
+struct TransformSettings {
+	uint nbins, sampleRate, size;
+};
+
+struct ChromaFilterSettings : public TransformSettings {
+	uint chroma, numChromas;
+};
+
+
 inline double frequencyForBin(uint bin, uint size, uint sampleRate=44100) {
 	return bin / static_cast<double>(size) * sampleRate;
+}
+
+/// frequencies for real part of the spectrum
+template <typename T>
+std::vector<T> fftFrequencies(TransformSettings s) {
+	std::vector<T> output(s.nbins);
+	for (uint i = 0; i < s.nbins; i++) {
+		output[i] = i / static_cast<T>(s.size) * s.sampleRate;
+	}
+	return output;
 }
 
 
 #include "whelpersg/audio.h"
 
-struct ChromaFilterSettings {
-	uint chroma, nbins, sampleRate, numChromas;
-};
 
 template <typename T>
 inline void chromaFilter(ChromaFilterSettings s, std::vector<T> &output) {
@@ -250,3 +266,61 @@ inline void chromaFilter(ChromaFilterSettings s, std::vector<T> &output) {
 	
 }
 
+struct MelScaleSettings {
+	double minFrequency, maxFrequency;
+	uint numBands;
+};
+
+struct MelFilterSettings : public MelScaleSettings, public TransformSettings {};
+
+template <typename T>
+inline std::vector<T> melFrequencies(MelScaleSettings s) {
+	
+	using namespace audio;
+	
+	double lowerMelBand = ftomel(s.minFrequency);
+	double step = (ftomel(s.maxFrequency) - lowerMelBand) / (s.numBands - 1);
+	// - 1 so we reach the max frequency in numBands
+	
+	std::vector<T> frequencies(s.numBands);
+	
+	for (uint i = 0; i < s.numBands; i++) {
+		frequencies[i] = meltof(lowerMelBand + step * i);
+	}
+	
+	return frequencies;
+}
+
+
+template <typename T>
+inline void melFilter(std::vector<std::vector<T>> &output, MelFilterSettings s) {
+	
+	MelScaleSettings scaleSettings = s;
+	scaleSettings.numBands+= 2;
+	auto melFreqs(melFrequencies<T>(scaleSettings));
+	
+	output.resize(s.numBands, std::vector<T>(s.nbins, 0.0));
+	
+	auto fftFreqs(fftFrequencies<T>(s));
+	
+	for (uint band = 0; band < s.numBands; band++) {
+		
+		double lowerFreq = melFreqs[band];
+		double middleFreq = melFreqs[band+1];
+		double upperFreq = melFreqs[band + 2];
+
+		uint lowerBin = lowerFreq * s.size / s.sampleRate;
+		uint upperBin = upperFreq * s.size / s.sampleRate;
+		double binFreq, risingGradient, fallingGradient;
+		
+		for (uint bin = lowerBin; bin < upperBin; bin++) {
+			binFreq = fftFreqs[bin]; //fftFreqbin / static_cast<double>(s.nbins) * s.sampleRate;
+			
+			risingGradient = (binFreq - lowerFreq) / (middleFreq - lowerFreq);
+			fallingGradient = (upperFreq - binFreq) / (upperFreq - middleFreq);
+			
+			output[band][bin] = std::max(0.0, std::min(risingGradient, fallingGradient));
+		}
+	}
+	
+}
