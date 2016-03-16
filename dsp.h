@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <complex>
 
 #ifndef PI
 #define PI 3.141592653589793238462
@@ -102,28 +103,32 @@ protected:
 	 typename window<T>::FuncType mWindowFunc;
 };
 
+template <typename T>
 class BaseFFT {
 public:
 	BaseFFT(size_t size): mSize(size) {}
 	
 	size_t getSize() { return mSize; }
 
-protected:
+public:
 	size_t mSize;
+	std::vector<std::complex<T>> mOutput;
+	std::vector<T> mInput;
 };
 
 #ifdef USE_FFTW
 
 #include "fftw3.h"
 
-class RealFFT  : public BaseFFT, public WindowMixin<float> {
-	fftwf_complex *mOutput;
+class RealFFT : public BaseFFT<float>, public WindowMixin<float> {
+public:
 	fftwf_plan mPlan;
-	float *mInput;
-
+	bool mNormalisesOutput;
+	
+	
 public:
 
-	RealFFT(size_t size): BaseFFT(size) {
+	RealFFT(size_t size): mNormalisesOutput(true), BaseFFT(size) {
 		init();
 	}
 	
@@ -138,40 +143,59 @@ public:
 	}
 	
 	
-	void forward(const float *input) {
-		std::copy(input, input + mSize * sizeof(float), mInput);
+	void forward(const std::vector<float> &input) {
+		
+		std::copy(input.begin(), input.end(), mInput.begin());
 		
 		if (mWindowFunc) {
-			mWindowFunc(mInput, mSize);
+			mWindowFunc(&mInput[0], mSize);
 		}
 		
 		fftwf_execute(mPlan);
+		
+		if (mNormalisesOutput) {
+			float size = static_cast<float>(mSize);
+			for (size_t i = 0; i < mSize; i++) {
+				mOutput[i]  /= size;
+			}
+		}
+		
 	}
 	
-	void forward(const std::vector<float> &input) {
-		forward(input.data());
-	}
-	
-	double frequencyForBin(uint bin, uint sampleRate=44100) {
+	double frequencyForBin(uint bin, uint sampleRate=44100) const {
 		return bin / static_cast<double>(mSize) * sampleRate;
 	}
 	
+	
+	void setNormalisesOutput(bool b) { mNormalisesOutput = b; }
+	
+	bool getNormalisesOutput() const { return mNormalisesOutput; }
+	
 protected:
 	void init() {
-		mInput = (float*) fftwf_malloc(sizeof(float) * mSize);
-		mOutput = (fftwf_complex*) fftwf_malloc(sizeof(fftw_complex) * mSize);
-		mPlan = fftwf_plan_dft_r2c_1d(static_cast<int>(mSize), mInput, mOutput, FFTW_ESTIMATE);
+		mInput.resize(mSize);
+		mOutput.resize(mSize);
+		
+		// the storage of fftwf_complex is compatible with std::complex
+		mPlan = fftwf_plan_dft_r2c_1d(static_cast<int>(mSize),
+									  static_cast<float*>(&mInput[0]),
+									  reinterpret_cast<fftwf_complex*>(&mOutput[0]),
+									  FFTW_ESTIMATE);
 	}
 	
 	void destroy() {
 		fftwf_destroy_plan(mPlan);
-		fftwf_free(mInput);
-		fftwf_free(mOutput);
 	}
 };
 
 
 #endif // end USE_FFTW
+
+
+inline double frequencyForBin(uint bin, uint size, uint sampleRate=44100) {
+	return bin / static_cast<double>(size) * sampleRate;
+}
+
 
 #include "whelpersg/audio.h"
 
@@ -195,7 +219,7 @@ inline void chromaFilter(ChromaFilterSettings s, std::vector<T> &output) {
 	for (uint i = 1; i < s.nbins; i++) {
 	
 		// bin frequency
-		frequency = i / static_cast<T>(s.nbins) * s.sampleRate;
+		frequency = static_cast<T>(frequencyForBin(i, s.nbins, s.sampleRate));
 		
 		// when chromas = 12, this is like audio::ftom() (just offset)
 		chromaNumber = audio::ftoo(frequency) * s.numChromas;
