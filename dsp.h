@@ -106,14 +106,33 @@ protected:
 template <typename T>
 class BaseFFT {
 public:
+	
+	using inputType = std::vector<T>;
+	using outputType = std::vector<std::complex<T>>;
+
 	BaseFFT(size_t size): mSize(size) {}
 	
-	size_t getSize() { return mSize; }
+	size_t getSize() const { return mSize; }
 
+	std::vector<T> getPower() const {
+
+		const size_t N = mSize / 2 + 1;
+		std::vector<T> output(N);
+		
+		for (size_t i = 0; i < N; i++) {
+			output[i] = std::abs(mOutput[i]);
+		}
+		return output;
+	}
+	
+	const outputType& getOutput() const {
+		return mOutput;
+	}
+	
 public:
 	size_t mSize;
-	std::vector<std::complex<T>> mOutput;
-	std::vector<T> mInput;
+	outputType mOutput;
+	inputType mInput;
 };
 
 #ifdef USE_FFTW
@@ -194,6 +213,11 @@ protected:
 
 struct TransformSettings {
 	uint nbins, sampleRate, size;
+	
+	void setSize(uint s) {
+		size = s;
+		nbins = size / 2 + 1;
+	}
 };
 
 struct ChromaFilterSettings : public TransformSettings {
@@ -293,13 +317,13 @@ inline std::vector<T> melFrequencies(MelScaleSettings s) {
 
 
 template <typename T>
-inline void melFilter(std::vector<std::vector<T>> &output, MelFilterSettings s) {
+inline std::vector<std::vector<T>> melFilterbank(MelFilterSettings s) {
 	
 	MelScaleSettings scaleSettings = s;
 	scaleSettings.numBands+= 2;
 	auto melFreqs(melFrequencies<T>(scaleSettings));
 	
-	output.resize(s.numBands, std::vector<T>(s.nbins, 0.0));
+	std::vector<std::vector<T>> output(s.numBands, std::vector<T>(s.nbins, 0.0));
 	
 	auto fftFreqs(fftFrequencies<T>(s));
 	
@@ -314,7 +338,7 @@ inline void melFilter(std::vector<std::vector<T>> &output, MelFilterSettings s) 
 		double binFreq, risingGradient, fallingGradient;
 		
 		for (uint bin = lowerBin; bin < upperBin; bin++) {
-			binFreq = fftFreqs[bin]; //fftFreqbin / static_cast<double>(s.nbins) * s.sampleRate;
+			binFreq = fftFreqs[bin];
 			
 			risingGradient = (binFreq - lowerFreq) / (middleFreq - lowerFreq);
 			fallingGradient = (upperFreq - binFreq) / (upperFreq - middleFreq);
@@ -323,4 +347,6 @@ inline void melFilter(std::vector<std::vector<T>> &output, MelFilterSettings s) 
 		}
 	}
 	
+	return output;
 }
+
