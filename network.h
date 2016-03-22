@@ -42,8 +42,8 @@ protected:
 	bool mIsOpen;
 };
 
-//using UdpClient = Client<SOCK_DGRAM>;
-//using TcpClient = Client<SOCK_STREAM>;
+using UdpClient = Client<SOCK_DGRAM>;
+using TcpClient = Client<SOCK_STREAM>;
 
 
 
@@ -71,7 +71,7 @@ float toOscType(T v) {
 }
 
 
-class OscSender : public Client<SOCK_DGRAM> {
+class OscSender : public UdpClient {
 	
 	enum { PADDING_SIZE = 4 };
 	
