@@ -3,19 +3,35 @@
 #include <vector>
 #include <cassert>
 
+namespace whg {
+
+#define CREATE_VEL_ELEM_OPERATOR(op) \
+template<typename T> \
+inline std::vector<T> operator op (std::vector<T> const &lhs, std::vector<T> const &rhs) { \
+auto N = lhs.size(); \
+assert(N == rhs.size()); \
+std::vector<T> output(N); \
+for (size_t i = 0; i < N; i++) output[i] = lhs[i] op rhs[i]; \
+return output; \
+}
+	
+CREATE_VEL_ELEM_OPERATOR(+)
+CREATE_VEL_ELEM_OPERATOR(-)
+CREATE_VEL_ELEM_OPERATOR(*)
+CREATE_VEL_ELEM_OPERATOR(/)
+
 template <typename T>
-std::vector<T> dot(const std::vector<T> &a, const std::vector<T> &b) {
+T dot(const std::vector<T> &a, const std::vector<T> &b) {
 	
 	auto N = b.size();
 	assert(N == a.size());
-	
-	std::vector<T> output(a.size());
+
+	T sum = 0;
 	
 	for (size_t i = 0; i < N; i++) {
-		output[i] = a[i] * b[i];
+		sum+= a[i] * b[i];
 	}
-	
-	return output;
+	return sum;
 }
 
 template <typename T>
@@ -34,12 +50,13 @@ std::vector<T> dot(const std::vector<std::vector<T>> &a, const std::vector<T> &b
 		output.resize(aRows);
 		T sum;
 		for (size_t i = 0; i < aRows; i++) {
-			sum = 0;
-			auto &row = a[i];
-			for (size_t j = 0; j < aCols; j++) {
-				sum+= row[j] * b[j];
-			}
-			output[i] = sum;
+			output[i] = dot(a[i], b);
+//			sum = 0;
+//			auto &row = a[i];
+//			for (size_t j = 0; j < aCols; j++) {
+//				sum+= row[j] * b[j];
+//			}
+//			output[i] = sum;
 		}
 	}
 	else if (N == aRows) {
@@ -55,4 +72,16 @@ std::vector<T> dot(const std::vector<std::vector<T>> &a, const std::vector<T> &b
 	}
 	
 	return output;
+}
+
+template <typename T>
+std::vector<T> max(const std::vector<T> &input, T maxVal) {
+	const auto N = input.size();
+	std::vector<T> output(N);
+	for (size_t i = 0; i < N; i++) {
+		output[i] = std::max(input[i], maxVal);
+	}
+	return output;
+}
+
 }
