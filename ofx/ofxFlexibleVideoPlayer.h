@@ -16,9 +16,20 @@ public:
     ofxFlexibleSilentVideoPlayer();
     
     virtual void load(string framesFolder, float frameRate=25);
-    
+	//bool load(string framesFolder) { load(framesFolder, 25); return true; };
+	
     virtual void update();
     virtual void draw();
+	
+	virtual void play() { mIsPlaying = true; }
+	virtual void stop() { mIsPlaying = false; }
+	
+	float getWidth() const { return 0; }
+	float getHeight() const {return 0; }
+	
+	bool isPaused() const { return !mIsPlaying; }
+	bool isLoaded() const { return true; }
+	bool isPlaying() const { return !mIsPlaying; }
 	
     virtual void setPositionTime(float time);
     void setFrame(int frame);
@@ -48,6 +59,8 @@ protected:
     float mContentLength; // in seconds
     float mPlayhead; // playhead in seconds
     float mSpeed;
+	bool mIsPlaying;
+	
 protected:
     float mLastUpdateTime;
     

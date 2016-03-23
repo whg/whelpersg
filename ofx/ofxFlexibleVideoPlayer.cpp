@@ -45,8 +45,6 @@ mSpeed(1) {}
 // framesFolder: a directory of images, in the right order, alphabetical?
 // audioFile: a .wav file of the soundtrack
 void ofxFlexibleSilentVideoPlayer::load(string framesFolder, float frameRate) {
-
-    cout << framesFolder << endl;
     
     ofDirectory dir(framesFolder);
     ofImage img;
