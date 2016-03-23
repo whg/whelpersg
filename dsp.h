@@ -17,6 +17,9 @@
 #define PI 3.141592653589793238462
 #endif
 
+
+namespace dsp {
+
 template <typename T>
 class window {
 public:
@@ -103,19 +106,80 @@ protected:
 	 typename window<T>::FuncType mWindowFunc;
 };
 
+
+
+#ifdef USE_FFTW
+
+#include "fftw3.h"
+
+
+// super basic, almost definitely flawed allocator
+template<typename T, typename AlignType>
+class AlignedAllocator {
+public :
+	typedef T value_type;
+	typedef value_type* pointer;
+	typedef const value_type* const_pointer;
+	typedef value_type& reference;
+	typedef const value_type& const_reference;
+	typedef std::size_t size_type;
+	typedef std::ptrdiff_t difference_type;
+	
+	pointer address(reference r) { return &r; }
+	const_pointer address(const_reference r) { return &r; }
+	
+	pointer allocate(size_type N, typename std::allocator<void>::const_pointer=0) {
+
+		size_type asize = alignof(AlignType);
+		size_type AN = N + asize;
+		void* p = ::operator new(AN * sizeof (T));
+		
+		auto *np = std::align(asize, N, p, AN);
+		
+		if (np != nullptr) {
+			return reinterpret_cast<pointer>(np);
+		}
+		
+		return nullptr;
+	}
+	
+	void deallocate(pointer p, size_type) {
+		::operator delete(p);
+	}
+	
+	size_type max_size() const {
+		return std::numeric_limits<size_type>::max() / sizeof(T);
+	}
+	
+	void construct(pointer p, const T& t) { new(p) T(t); }
+	void destroy(pointer p) { p->~T(); }
+
+};
+
+
 template <typename T>
 class BaseFFT {
 public:
 	
 	using inputType = std::vector<T>;
-	using outputType = std::vector<std::complex<T>>;
-
+	using outputType = std::vector<std::complex<T>, AlignedAllocator<std::complex<T>, T>>;
+	
 	BaseFFT(size_t size): mSize(size) {}
 	
 	size_t getSize() const { return mSize; }
-
+	
+	void getPower(std::vector<T> &output) const {
+		
+		const size_t N = mSize / 2 + 1;
+		output.resize(N);
+		
+		for (size_t i = 0; i < N; i++) {
+			output[i] = std::abs(mOutput[i]);
+		}
+	}
+	
 	std::vector<T> getPower() const {
-
+		
 		const size_t N = mSize / 2 + 1;
 		std::vector<T> output(N);
 		
@@ -124,6 +188,7 @@ public:
 		}
 		return output;
 	}
+
 	
 	const outputType& getOutput() const {
 		return mOutput;
@@ -135,9 +200,8 @@ public:
 	inputType mInput;
 };
 
-#ifdef USE_FFTW
+#define FFTW_COPY_OUTPUT 1
 
-#include "fftw3.h"
 
 class RealFFT : public BaseFFT<float>, public WindowMixin<float> {
 public:
@@ -164,21 +228,14 @@ public:
 	
 	void forward(const std::vector<float> &input) {
 		
-		std::copy(input.begin(), input.end(), mInput.begin());
-		
-		if (mWindowFunc) {
-			mWindowFunc(&mInput[0], mSize);
-		}
-		
-		fftwf_execute(mPlan);
-		
-		if (mNormalisesOutput) {
-			float size = static_cast<float>(mSize);
-			for (size_t i = 0; i < mSize; i++) {
-				mOutput[i]  /= size;
-			}
-		}
-		
+		mInput.assign(input.begin(), input.end());
+//		std::copy(input.begin(), input.end(), mInput.begin());
+		execute();
+	}
+	
+	void forward(const float *input) {
+		std::copy(input, input + mSize, mInput.begin());
+		execute();
 	}
 	
 	double frequencyForBin(uint bin, uint sampleRate=44100) const {
@@ -190,20 +247,57 @@ public:
 	
 	bool getNormalisesOutput() const { return mNormalisesOutput; }
 	
+	
 protected:
+#ifdef FFTW_COPY_OUTPUT
+	fftwf_complex *tOutput;
+#endif
+
 	void init() {
 		mInput.resize(mSize);
-		mOutput.resize(mSize);
+		auto outputSize = mSize / 2 + 1;
+		mOutput.resize(outputSize);
+
+#ifdef FFTW_COPY_OUTPUT
+		tOutput = (fftwf_complex*) fftwf_malloc(outputSize * sizeof(fftwf_complex));
+#endif
 		
-		// the storage of fftwf_complex is compatible with std::complex
 		mPlan = fftwf_plan_dft_r2c_1d(static_cast<int>(mSize),
 									  static_cast<float*>(&mInput[0]),
+#ifdef FFTW_COPY_OUTPUT
+									  tOutput,
+#else
 									  reinterpret_cast<fftwf_complex*>(&mOutput[0]),
+#endif
 									  FFTW_ESTIMATE);
 	}
 	
 	void destroy() {
+#ifdef FFTW_COPY_OUTPUT
+		fftwf_free(tOutput);
+#endif
+
 		fftwf_destroy_plan(mPlan);
+	}
+	
+	void execute() {
+		if (mWindowFunc) {
+			mWindowFunc(&mInput[0], mSize);
+		}
+		
+		fftwf_execute(mPlan);
+		
+#ifdef FFTW_COPY_OUTPUT
+		std::complex<float> *tempOutput = reinterpret_cast<std::complex<float>*>(tOutput);
+		std::copy(tempOutput, tempOutput + mSize / 2 + 1, mOutput.begin());
+#endif
+		
+		if (mNormalisesOutput) {
+			float size = static_cast<float>(mSize);
+			for (size_t i = 0; i < mSize; i++) {
+				mOutput[i]  /= size;
+			}
+		}
 	}
 };
 
@@ -221,7 +315,7 @@ struct TransformSettings {
 };
 
 struct ChromaFilterSettings : public TransformSettings {
-	uint chroma, numChromas;
+	uint numChromas;
 };
 
 
@@ -244,50 +338,57 @@ std::vector<T> fftFrequencies(TransformSettings s) {
 
 
 template <typename T>
-inline void chromaFilter(ChromaFilterSettings s, std::vector<T> &output) {
+inline std::vector<std::vector<T>> chromaFilterbank(ChromaFilterSettings s) {
+	
+	std::vector<std::vector<T>> output(s.numChromas, std::vector<T>(s.nbins, 0.0));
 
-	output.resize(s.nbins);
 	
 	std::vector<T> chromaNumbers(s.nbins), binWidths(s.nbins), loudnessAdjustment(s.nbins);
 	
 	const T halfNumChromas = std::round(s.numChromas / 2.0);
-	const double gaussianSkinnines = 2.0;
+	const double gaussianSkinnines = 4.0;
 	const T minBinWidth = 1.0;
 	
 	T frequency, lastNote = 0, chromaNumber, temp;
-	
-	for (uint i = 1; i < s.nbins; i++) {
-	
-		// bin frequency
-		frequency = static_cast<T>(frequencyForBin(i, s.nbins, s.sampleRate));
-		
-		// when chromas = 12, this is like audio::ftom() (just offset)
-		chromaNumber = audio::ftoo(frequency) * s.numChromas;
-		
-		// modulo so we wrap around numChromas and subtract half to centre on 0
-		// this will give us part of the exponent later
-		chromaNumbers[i] =  std::fmod(chromaNumber - s.chroma + halfNumChromas, s.numChromas) - halfNumChromas;
-		
-		// calculate the loudness ramp values
-		// TODO: make this better!
-		temp = (chromaNumber / s.numChromas - 5.0) / 2.0;
-		loudnessAdjustment[i] = std::exp(-0.5 * temp * temp);
-		
-		
-		binWidths[i-1] = std::max(chromaNumber - lastNote, minBinWidth);
-		lastNote = chromaNumber;
-	}
 
-	binWidths[s.nbins-1] = minBinWidth;
-	
-	for (uint i = 1; i < s.nbins; i++) {
-		temp = gaussianSkinnines * chromaNumbers[i] / binWidths[i];
-		output[i] = std::exp(-0.5 * temp * temp) * loudnessAdjustment[i];
+	for (uint chroma = 0; chroma < s.numChromas; chroma++) {
+		
+		auto &band = output[chroma];
+		
+		for (uint i = 1; i < s.nbins; i++) {
+		
+			// bin frequency
+			frequency = static_cast<T>(frequencyForBin(i, s.nbins, s.sampleRate));
+			
+			// when chromas = 12, this is like audio::ftom() (just offset)
+			chromaNumber = audio::ftoo(frequency) * s.numChromas;
+			
+			// modulo so we wrap around numChromas and subtract half to centre on 0
+			// this will give us part of the exponent later
+			chromaNumbers[i] =  std::fmod(chromaNumber - chroma + halfNumChromas, s.numChromas) - halfNumChromas;
+			
+			// calculate the loudness ramp values
+			// TODO: make this better!
+			temp = (chromaNumber / s.numChromas - 5.0) / 2.0;
+			loudnessAdjustment[i] = std::exp(-0.5 * temp * temp);
+			
+			
+			binWidths[i-1] = std::max(chromaNumber - lastNote, minBinWidth);
+			lastNote = chromaNumber;
+		}
+
+		binWidths[s.nbins-1] = minBinWidth;
+		
+		for (uint i = 1; i < s.nbins; i++) {
+			temp = gaussianSkinnines * chromaNumbers[i] / binWidths[i];
+			band[i] = std::exp(-0.5 * temp * temp) * loudnessAdjustment[i];
+			
+		}
+		band[0] = 0; // always nothing on the DC
 		
 	}
 	
-	output[0] = 0; // always nothing on the DC
-	
+	return output;
 }
 
 struct MelScaleSettings {
@@ -337,16 +438,24 @@ inline std::vector<std::vector<T>> melFilterbank(MelFilterSettings s) {
 		uint upperBin = upperFreq * s.size / s.sampleRate;
 		double binFreq, risingGradient, fallingGradient;
 		
+		T v, sum = 0;
 		for (uint bin = lowerBin; bin < upperBin; bin++) {
 			binFreq = fftFreqs[bin];
 			
 			risingGradient = (binFreq - lowerFreq) / (middleFreq - lowerFreq);
 			fallingGradient = (upperFreq - binFreq) / (upperFreq - middleFreq);
 			
-			output[band][bin] = std::max(0.0, std::min(risingGradient, fallingGradient));
+			v = std::max(0.0, std::min(risingGradient, fallingGradient));
+			output[band][bin] = v;
+			sum+= v;
 		}
+		
+//		for (uint bin = lowerBin; bin < upperBin; bin++) {
+//			output[band][bin] /= sum;
+//		}
 	}
 	
 	return output;
 }
 
+} // namespace dsp
