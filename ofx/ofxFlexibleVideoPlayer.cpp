@@ -1,14 +1,6 @@
-//
-//  ofxFlexibleVideoPlayer.cpp
-//  emptyExample
-//
-//  Created by Will Gallia on 04/02/2016.
-//
-//
-
 #include "ofxFlexibleVideoPlayer.h"
 
-#include "whelpersg/ofxTools.h"
+#include "ofxTools.h"
 
 
 static const string shaderVersion = "#version 150\n";
@@ -43,16 +35,16 @@ static const string fragShader = GLSL150(
 );
 
 
-ofxFlexibleVideoPlayer::ofxFlexibleVideoPlayer():
+ofxFlexibleSilentVideoPlayer::ofxFlexibleSilentVideoPlayer():
 mLastUpdateTime(0),
 mFrameRate(0),
 mLoop(LoopType::END),
-mAudioStep(1),
+//mAudioStep(1),
 mSpeed(1) {}
 
 // framesFolder: a directory of images, in the right order, alphabetical?
 // audioFile: a .wav file of the soundtrack
-void ofxFlexibleVideoPlayer::load(string framesFolder, string audioFile, float frameRate) {
+void ofxFlexibleSilentVideoPlayer::load(string framesFolder, float frameRate) {
 
     cout << framesFolder << endl;
     
@@ -68,23 +60,17 @@ void ofxFlexibleVideoPlayer::load(string framesFolder, string audioFile, float f
         cout << file.getAbsolutePath() << endl;
     }
     
-    ofLogNotice("ofxFlexibleVideoPlayer") << "loaded " << mTextures.size() << " images";
+    ofLogNotice("ofxFlexibleSilentVideoPlayer") << "loaded " << mTextures.size() << " images";
     
-    mSoundtrackSample.load(audioFile);
-    
-    mAudioData.resize(mSoundtrackSample.length);
-    for (int i = 0; i < mAudioData.size(); i++) {
-        mAudioData[i] = mSoundtrackSample.temp[i] / 32767.0f;
-    }
-    
+
+	
     mFrameRate = frameRate;
     mFrameTime = 1.0f / frameRate; // this should be from the frameRate of the video and not change
     mContentLength = int(mTextures.size()) * mFrameTime;
     
     /////////////////////////////////////
-    mSoundtrackSample.getLength();
-    auto audiolength = mSoundtrackSample.length;
-    
+
+	
     blendShader.setupShaderFromSource(GL_VERTEX_SHADER, vertShader);
     blendShader.setupShaderFromSource(GL_FRAGMENT_SHADER, fragShader);
     blendShader.bindDefaults();
@@ -93,7 +79,23 @@ void ofxFlexibleVideoPlayer::load(string framesFolder, string audioFile, float f
     ofSetWindowShape(mTextures[0].getWidth(), mTextures[0].getHeight());
 }
 
-void ofxFlexibleVideoPlayer::update() {
+void ofxFlexibleVideoPlayer::load(string framesFolder, string audioFile, float frameRate) {
+
+	ofxFlexibleSilentVideoPlayer::load(framesFolder, frameRate);
+	
+	//    mSoundtrackSample.load(audioFile);
+	//
+	//    mAudioData.resize(mSoundtrackSample.length);
+	//    for (int i = 0; i < mAudioData.size(); i++) {
+	//        mAudioData[i] = mSoundtrackSample.temp[i] / 32767.0f;
+	//    }}
+	
+	//    mSoundtrackSample.getLength();
+	//    auto audiolength = mSoundtrackSample.length;
+	
+}
+
+void ofxFlexibleSilentVideoPlayer::update() {
     
     auto currentTime = ofGetElapsedTimef();
     auto timeSinceLastUpdate = currentTime - mLastUpdateTime;
@@ -101,12 +103,7 @@ void ofxFlexibleVideoPlayer::update() {
     
     auto lastPlayhead = mPlayhead;
     mPlayhead+= timeSinceLastUpdate * mSpeed;
-    
-    audioMutex.lock();
-    auto playheadDiff = (mPlayhead - lastPlayhead);
-    mAudioStep = playheadDiff / timeSinceLastUpdate;
-    audioMutex.unlock();
-    
+	
     // simple loopback
     if (mLoop == LoopType::WHOLE) {
         if (mPlayhead >= mContentLength) {
@@ -124,7 +121,21 @@ void ofxFlexibleVideoPlayer::update() {
         
 }
 
-void ofxFlexibleVideoPlayer::draw() {
+void ofxFlexibleVideoPlayer::update() {
+	
+	auto currentTime = ofGetElapsedTimef();
+	auto timeSinceLastUpdate = currentTime - mLastUpdateTime;
+	auto lastPlayhead = mPlayhead;
+
+	ofxFlexibleSilentVideoPlayer::update();
+	
+	audioMutex.lock();
+	auto playheadDiff = (mPlayhead - lastPlayhead);
+	mAudioStep = playheadDiff / timeSinceLastUpdate;
+	audioMutex.unlock();
+}
+
+void ofxFlexibleSilentVideoPlayer::draw() {
     
     float exactFrame = mPlayhead / mFrameTime;
     int frameA = int(floor(exactFrame));
@@ -194,20 +205,25 @@ void ofxFlexibleVideoPlayer::audioOut(ofSoundBuffer& buffer) {
     }
 }
 
-void ofxFlexibleVideoPlayer::setPositionTime(float time) {
-    mPlayhead = time;
-    
-    audioMutex.lock();
-    mAudioPlayhead = (mPlayhead / mContentLength) * mAudioData.size();
-    audioMutex.unlock();
+void ofxFlexibleSilentVideoPlayer::setPositionTime(float time) {
 
+    mPlayhead = time;
 }
 
-void ofxFlexibleVideoPlayer::setFrame(int frame) {
+void ofxFlexibleVideoPlayer::setPositionTime(float time) {
+
+	ofxFlexibleSilentVideoPlayer::setPositionTime(time);
+	
+	audioMutex.lock();
+	mAudioPlayhead = (mPlayhead / mContentLength) * mAudioData.size();
+	audioMutex.unlock();
+}
+
+void ofxFlexibleSilentVideoPlayer::setFrame(int frame) {
     setPositionTime(frame * mFrameTime);
 }
 
-void ofxFlexibleVideoPlayer::setPosition(float point) {
+void ofxFlexibleSilentVideoPlayer::setPosition(float point) {
     setPositionTime(point * mContentLength);
 }
 

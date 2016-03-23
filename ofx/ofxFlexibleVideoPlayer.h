@@ -9,20 +9,18 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxMaxim.h"
+//#include "ofxMaxim.h"
 
-class ofxFlexibleVideoPlayer {
+class ofxFlexibleSilentVideoPlayer {
 public:
-    ofxFlexibleVideoPlayer();
+    ofxFlexibleSilentVideoPlayer();
     
-    void load(string framesFolder, string audioFile, float frameRate=25);
+    virtual void load(string framesFolder, float frameRate=25);
     
-    void update();
-    void draw();
-    
-    void audioOut(ofSoundBuffer& buffer);
-    
-    void setPositionTime(float time);
+    virtual void update();
+    virtual void draw();
+	
+    virtual void setPositionTime(float time);
     void setFrame(int frame);
     void setPosition(float absolutePoint);
     
@@ -35,8 +33,7 @@ public:
     
     void setCuePoint(float time) { mCuePoint = time; }
     void setCueFrame(int frame) { mCuePoint = frame * mFrameTime; }
-    
-    
+	
     size_t getNumFrames() { return mTextures.size(); }
     int getNumFramesFromTime(float time) { return int(ceil(time / mFrameTime)); }
     
@@ -46,11 +43,7 @@ public:
     
 protected:
     vector<ofTexture> mTextures;
-    ofxMaxiSample mSoundtrackSample;
-    vector<float> mAudioData;
-    unsigned long mAudioPlayhead, mLastAudioPlayhead;
-    float mAudioStep;
-    
+	
     float mFrameRate, mFrameTime;
     float mContentLength; // in seconds
     float mPlayhead; // playhead in seconds
@@ -60,8 +53,26 @@ protected:
     
     LoopType mLoop;
     float mCuePoint;
-    
-    ofMutex audioMutex;
-    
+	
     ofShader blendShader;
+};
+
+class ofxFlexibleVideoPlayer : public ofxFlexibleSilentVideoPlayer {
+public:
+
+	void load(string framesFolder, string audioFile, float frameRate=25);
+	void audioOut(ofSoundBuffer &buffer);
+	
+	void update();
+	
+	void setPositionTime(float time);
+	
+protected:
+//	ofxMaxiSample mSoundtrackSample;
+	vector<float> mAudioData;
+	unsigned long mAudioPlayhead, mLastAudioPlayhead;
+	float mAudioStep;
+	
+	ofMutex audioMutex;
+
 };
