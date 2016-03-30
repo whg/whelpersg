@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cmath>
+#include <vector>
+#include <deque>
 
 
 namespace audio {
@@ -34,7 +36,7 @@ inline double meltof(double mel) {
 template <typename T>
 inline void logAmplitude(std::vector<T> &realVector) {
 	for (auto &v : realVector) {
-		v = static_cast<T>(20.0 * std::log10(v));
+		v = static_cast<T>(20.0 * std::log10(v + 1));
 	}
 }
 

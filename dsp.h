@@ -12,6 +12,10 @@
 #include <vector>
 #include <cmath>
 #include <complex>
+#include <type_traits>
+
+#include "whelpersg/audio.h"
+
 
 #ifndef PI
 #define PI 3.141592653589793238462
@@ -113,9 +117,9 @@ protected:
 #include "fftw3.h"
 
 
-// super basic, almost definitely flawed allocator
-template<typename T, typename AlignType>
-class AlignedAllocator {
+// super basic, just encapsulate fftw's memory management
+template<typename T>
+class fftwfAllocator {
 public :
 	typedef T value_type;
 	typedef value_type* pointer;
@@ -130,21 +134,12 @@ public :
 	
 	pointer allocate(size_type N, typename std::allocator<void>::const_pointer=0) {
 
-		size_type asize = alignof(AlignType);
-		size_type AN = N + asize;
-		void* p = ::operator new(AN * sizeof (T));
-		
-		auto *np = std::align(asize, N, p, AN);
-		
-		if (np != nullptr) {
-			return reinterpret_cast<pointer>(np);
-		}
-		
-		return nullptr;
+		return reinterpret_cast<pointer>(fftwf_malloc(N * sizeof(T)));
 	}
 	
 	void deallocate(pointer p, size_type) {
-		::operator delete(p);
+	
+		fftwf_free(static_cast<void*>(p));
 	}
 	
 	size_type max_size() const {
@@ -156,13 +151,53 @@ public :
 
 };
 
+template<typename T>
+class allocatorf {
+ public:
+  typedef T value_type;
+  typedef value_type* pointer;
+  typedef value_type const* const_pointer;
+  typedef void* void_pointer;
+  typedef void const* const_void_pointer;
+  typedef std::size_t size_type;
+  typedef std::ptrdiff_t difference_type;
+  template<typename U> struct rebind { typedef allocatorf<U> other; };
+		
+  pointer address(T& object) const { return &object; }
+  const_pointer address(T const& object) const { return &object; }
+  size_type max_size() const {
+	  return std::numeric_limits<std::size_t>::max();
+  }
+  template<typename... Args>
+  void construct(pointer p, Args&&... args) {
+	  new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+  }
+  void destroy(pointer p) {
+	  p->~T();
+  }
+  pointer allocate(size_type count, const void* = 0) {
+	  return reinterpret_cast<T*>(fftwf_malloc(count * sizeof(T)));
+  }
+  void deallocate(pointer p, size_type count) {
+	  fftwf_free(static_cast<void*>(p));
+  }
+		
+  bool operator==(allocatorf const& rhs) const {
+	  return true;
+  }
+  bool operator!=(allocatorf const& rhs) const {
+	  return !(*this == rhs);
+  }
+	};
+
+//
 
 template <typename T>
 class BaseFFT {
 public:
 	
 	using inputType = std::vector<T>;
-	using outputType = std::vector<std::complex<T>, AlignedAllocator<std::complex<T>, T>>;
+	using outputType = std::vector<std::complex<T>>;
 	
 	BaseFFT(size_t size): mSize(size) {}
 	
@@ -190,9 +225,11 @@ public:
 	}
 
 	
-	const outputType& getOutput() const {
-		return mOutput;
-	}
+	const outputType& getOutput() const { return mOutput; }
+	outputType& getOutput() { return mOutput; }
+	
+	const inputType& getInput() const { return mInput; }
+	inputType& getInput() { return mInput; }
 	
 public:
 	size_t mSize;
@@ -202,10 +239,11 @@ public:
 
 #define FFTW_COPY_OUTPUT 1
 
+//TODO: make fftw allocator!!!
 
 class RealFFT : public BaseFFT<float>, public WindowMixin<float> {
 public:
-	fftwf_plan mPlan;
+	fftwf_plan mForwardPlan, mInversePlan;
 	bool mNormalisesOutput;
 	
 	
@@ -225,17 +263,44 @@ public:
 		init();
 	}
 	
+	template<class InputIterator>
+	void forward(InputIterator begin, InputIterator end) {
 	
-	void forward(const std::vector<float> &input) {
+		mInput.assign(begin, end);
+		forwardExecute();
+	}
+	
+//	void forward(inputType::const_iterator begin, inputType::const_iterator end) {
+//		
+//		mInput.assign(begin, end);
+//		forwardExecute();
+//	}
+	
+	void forward(const inputType &input) {
 		
-		mInput.assign(input.begin(), input.end());
-//		std::copy(input.begin(), input.end(), mInput.begin());
-		execute();
+		forward(input.begin(), input.end());
 	}
 	
 	void forward(const float *input) {
 		std::copy(input, input + mSize, mInput.begin());
-		execute();
+		forwardExecute();
+	}
+	
+	void inverse(const outputType &input) {
+		
+		mOutput.assign(input.begin(), input.end());
+		//		std::copy(input.begin(), input.end(), mInput.begin());
+		inverseExecute();
+	}
+	
+	// when the input is a vector of real numbers
+	void inverse(const inputType &input) {
+		
+		for (size_t i = 0; i < input.size(); i++) {
+			mOutput[i].real(input[i]);
+		}
+		
+		inverseExecute();
 	}
 	
 	double frequencyForBin(uint bin, uint sampleRate=44100) const {
@@ -262,7 +327,7 @@ protected:
 		tOutput = (fftwf_complex*) fftwf_malloc(outputSize * sizeof(fftwf_complex));
 #endif
 		
-		mPlan = fftwf_plan_dft_r2c_1d(static_cast<int>(mSize),
+		mForwardPlan = fftwf_plan_dft_r2c_1d(static_cast<int>(mSize),
 									  static_cast<float*>(&mInput[0]),
 #ifdef FFTW_COPY_OUTPUT
 									  tOutput,
@@ -270,6 +335,16 @@ protected:
 									  reinterpret_cast<fftwf_complex*>(&mOutput[0]),
 #endif
 									  FFTW_ESTIMATE);
+		
+		mInversePlan = fftwf_plan_dft_c2r_1d(static_cast<int>(mSize),
+#ifdef FFTW_COPY_OUTPUT
+											 tOutput,
+#else
+											 reinterpret_cast<fftwf_complex*>(&mOutput[0]),
+#endif
+											static_cast<float*>(&mInput[0]),
+											 FFTW_ESTIMATE);
+
 	}
 	
 	void destroy() {
@@ -277,15 +352,17 @@ protected:
 		fftwf_free(tOutput);
 #endif
 
-		fftwf_destroy_plan(mPlan);
+		fftwf_destroy_plan(mForwardPlan);
+		fftwf_destroy_plan(mInversePlan);
+		
 	}
 	
-	void execute() {
+	void forwardExecute() {
 		if (mWindowFunc) {
 			mWindowFunc(&mInput[0], mSize);
 		}
 		
-		fftwf_execute(mPlan);
+		fftwf_execute(mForwardPlan);
 		
 #ifdef FFTW_COPY_OUTPUT
 		std::complex<float> *tempOutput = reinterpret_cast<std::complex<float>*>(tOutput);
@@ -298,6 +375,27 @@ protected:
 				mOutput[i]  /= size;
 			}
 		}
+	}
+	
+	void inverseExecute() {
+
+		if (!mNormalisesOutput) {
+			float size = static_cast<float>(mSize);
+			for (size_t i = 0; i < mSize; i++) {
+				mOutput[i]  /= size;
+			}
+		}
+
+
+#ifdef FFTW_COPY_OUTPUT
+		std::complex<float> *tempOutput = reinterpret_cast<std::complex<float>*>(tOutput);
+		std::copy(mOutput.begin(), mOutput.end(), tempOutput);
+#endif
+
+		
+		fftwf_execute(mInversePlan);
+		
+		
 	}
 };
 
@@ -334,8 +432,7 @@ std::vector<T> fftFrequencies(TransformSettings s) {
 }
 
 
-#include "whelpersg/audio.h"
-
+//#include <deque>
 
 template <typename T>
 inline std::vector<std::vector<T>> chromaFilterbank(ChromaFilterSettings s) {
@@ -456,6 +553,16 @@ inline std::vector<std::vector<T>> melFilterbank(MelFilterSettings s) {
 	}
 	
 	return output;
+}
+
+template<typename T>
+std::vector<T> autocorrelate(const std::vector<T> &input) {
+	RealFFT fft(input.size());
+	
+	fft.forward(input);
+	fft.inverse(fft.getPower());
+	
+	return fft.getInput();
 }
 
 } // namespace dsp

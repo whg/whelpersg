@@ -82,7 +82,7 @@ public:
 	}
 	
 	bool push(const std::vector<T> &vs) {
-		push(&vs[0], vs.size());
+		return push(&vs[0], vs.size());
 //		if (available() >= vs.size() + 1) {
 //			auto firstChunk = std::min(vs.size(), mSize - mTail);
 //			
