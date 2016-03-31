@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 namespace whg {
 
 template<class T>
@@ -29,6 +31,20 @@ size_t argmax(InputIterator begin, InputIterator end) {
 		}
 		i++;
 	}
+	return output;
+}
+
+template<class InputIterator>
+std::vector<size_t> argsort(InputIterator begin, InputIterator end) {
+	
+	size_t N = static_cast<size_t>(end - begin);
+	std::vector<size_t> output(N);
+	for (size_t i = 0; i < N; i++) output[i] = i;
+	
+	std::sort(output.begin(), output.end(), [&begin](size_t a, size_t b) {
+		return *(begin+a) < *(begin+b);
+	});
+	
 	return output;
 }
 
