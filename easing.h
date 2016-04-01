@@ -1,5 +1,6 @@
 #pragma once
 
+namespace whg {
 
 template <typename T>
 class Easer {
@@ -21,9 +22,11 @@ public:
 		return mCurrentValue;
 	}
 	
-	virtual bool finished() {
-		return mCurrentValue >= 1.0;
-	}
+	bool getIsAlive(float time) const { return time >= mStartTime && time <= mEndTime; }
+	bool getHasEnded(float time) const { return time > mEndTime; }
+	
+	float getStartTime() const { return mStartTime; }
+	float getEndTime() const { return mEndTime; }
 	
 protected:
 	T mStartValue, mEndValue, mValueRange;
@@ -107,11 +110,18 @@ public:
 	
 	void add(Easer<T> *easer) {
 		
-		if (mEasers.size() > 0 && easer->mStartTime == 0) {
+		if (mEasers.size() > 0) {
 			
-			easer->mStartTime = mEasers.back()->mEndTime;
-			easer->mEndTime+= mEasers.back()->mEndTime;
+			if (easer->mStartTime == 0) {
+				easer->mStartTime = mEasers.back()->mEndTime;
+				easer->mEndTime+= mEasers.back()->mEndTime;
+			}
 		}
+		else {
+			this->mStartTime = easer->mStartTime;
+		}
+		
+		this->mEndTime = easer->mEndTime;
 		
 		mEasers.push_back(std::unique_ptr<Easer<T>>(easer));
 		
@@ -126,8 +136,14 @@ public:
 		return T();
 	}
 	
+	void clear() {
+		mEasers.clear();
+		this->mStartTime = this->mEndTime = 0;
+	}
 	
 protected:
 	std::vector<std::unique_ptr<Easer<T>>> mEasers;
 };
 
+
+} // namespace whg
