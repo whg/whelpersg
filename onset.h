@@ -33,6 +33,7 @@ public:
 			mSleepCounter = SLEEP_TICKS;
 		}
 		
+		// effectively half wave rectifying
 		if (diff > 0) {
 			
 			mHistory.push(diff);
@@ -72,8 +73,6 @@ public:
 	
 	float update(T value) {
 		
-		using namespace std;
-		
 		mHistory.push(value);
 		
 		// autocorrelation via FFT
@@ -85,7 +84,7 @@ public:
 		auto sorted = whg::argsort(ac.begin()+1, ac.end());
 		for (int i = sorted.size()-6; i < sorted.size(); i++) {
 			auto rbpm = (binToBpm(sorted[i]+1));
-			if (rbpm > 60 && rbpm < 180) {
+			if (rbpm > 69 && rbpm < 180) {
 				
 				mIntervalCounter.increment(smoothBpm(rbpm));
 			}
@@ -97,6 +96,7 @@ public:
 	}
 	
 	void setHopSize(size_t hs) { mHopSize = hs; }
+	
 	size_t getHopSize() { return mHopSize; }
 	
 protected:

@@ -1,11 +1,3 @@
-//
-//  dsp.h
-//  hlaa
-//
-//  Created by Will Gallia on 14/03/2016.
-//  Copyright (c) 2016 None. All rights reserved.
-//
-
 #pragma once
 
 #include <algorithm>
@@ -120,7 +112,7 @@ protected:
 // super basic, just encapsulate fftw's memory management
 template<typename T>
 class fftwfAllocator {
-public :
+public:
 	typedef T value_type;
 	typedef value_type* pointer;
 	typedef const value_type* const_pointer;
@@ -151,46 +143,6 @@ public :
 
 };
 
-template<typename T>
-class allocatorf {
- public:
-  typedef T value_type;
-  typedef value_type* pointer;
-  typedef value_type const* const_pointer;
-  typedef void* void_pointer;
-  typedef void const* const_void_pointer;
-  typedef std::size_t size_type;
-  typedef std::ptrdiff_t difference_type;
-  template<typename U> struct rebind { typedef allocatorf<U> other; };
-		
-  pointer address(T& object) const { return &object; }
-  const_pointer address(T const& object) const { return &object; }
-  size_type max_size() const {
-	  return std::numeric_limits<std::size_t>::max();
-  }
-  template<typename... Args>
-  void construct(pointer p, Args&&... args) {
-	  new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
-  }
-  void destroy(pointer p) {
-	  p->~T();
-  }
-  pointer allocate(size_type count, const void* = 0) {
-	  return reinterpret_cast<T*>(fftwf_malloc(count * sizeof(T)));
-  }
-  void deallocate(pointer p, size_type count) {
-	  fftwf_free(static_cast<void*>(p));
-  }
-		
-  bool operator==(allocatorf const& rhs) const {
-	  return true;
-  }
-  bool operator!=(allocatorf const& rhs) const {
-	  return !(*this == rhs);
-  }
-	};
-
-//
 
 template <typename T>
 class BaseFFT {
