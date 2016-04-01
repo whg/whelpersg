@@ -4,6 +4,7 @@
 #include <cassert>
 #include <algorithm>
 #include <utility>
+#include <limits>
 
 namespace whg {
 
@@ -53,12 +54,6 @@ std::vector<T> dot(const std::vector<std::vector<T>> &a, const std::vector<T> &b
 		T sum;
 		for (size_t i = 0; i < aRows; i++) {
 			output[i] = dot(a[i], b);
-//			sum = 0;
-//			auto &row = a[i];
-//			for (size_t j = 0; j < aCols; j++) {
-//				sum+= row[j] * b[j];
-//			}
-//			output[i] = sum;
 		}
 	}
 	else if (N == aRows) {
@@ -90,8 +85,17 @@ std::vector<T> max(const std::vector<T> &input, T maxVal=0) {
 template <class Iterable>
 typename Iterable::value_type sum(const Iterable &input) {
 	typename Iterable::value_type output = 0;
-	for (auto &v : input) {
+	for (const auto &v : input) {
 		output+= v;
+	}
+	return output;
+}
+
+template <class Iterable>
+typename Iterable::value_type maxValue(const Iterable &input) {
+	typename Iterable::value_type output = std::numeric_limits<typename Iterable::value_type>::min();
+	for (const auto &v : input) {
+		output = std::max(v, output);
 	}
 	return output;
 }
@@ -120,6 +124,14 @@ template <typename T>
 T std(const std::vector<T> &input) {
 	return std::sqrt(variance(input));
 }
+
+template <typename T>
+T rms(const std::vector<T> &input) {
+	std::vector<T> squared(input.size());
+	std::transform(input.begin(), input.end(), squared.begin(), [](T v) { return v * v; });
+	return std::sqrt(mean(squared));
+}
+
 
 /// Holds the start and end (inclusive) of the ranges
 struct ConsecutiveMatch {

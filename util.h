@@ -48,5 +48,9 @@ std::vector<size_t> argsort(InputIterator begin, InputIterator end) {
 	return output;
 }
 
+template <typename T>
+T clamp(T value, T min=0, T max=1) {
+	return std::min(max, std::max(value, min));
+}
 
 }
