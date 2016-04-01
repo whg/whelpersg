@@ -30,7 +30,7 @@ void ofxParameterMapper::setup() {
     ofAddListener(ofxBaseGui::guiSelectedEvent, this, &ofxParameterMapper::guiSelected);
     ofAddListener(ofxOscCenter::newMessageEvent, this, &ofxParameterMapper::newOscMessage);
     
-    load();
+    //load();
 }
 
 void ofxParameterMapper::guiSelected(ofxGuiSelectedArgs &args) {
@@ -138,6 +138,11 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
             float value = args.message.getArgAsFloat(1);
             modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);
         }
+		else {
+			float value = args.message.getArgAsFloat(0);
+			modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);
+			cout << value << endl;
+		}
     }
 }
 
