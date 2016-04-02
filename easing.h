@@ -14,13 +14,16 @@ public:
 	}
 	
 	Easer(float duration, T start, T end): Easer(0, duration, start, end) {}
+	Easer(float duration, T value): Easer(0, duration, value, value) {}
 	
-	virtual T valueAt(float time) const { return T(); }
+	virtual T valueAt(float time) const { return mStartValue; }
 	
 	virtual T update(float time) {
 		mCurrentValue = valueAt(time);
 		return mCurrentValue;
 	}
+	
+	virtual T getValue() const { return mCurrentValue; }
 	
 	bool getIsAlive(float time) const { return time >= mStartTime && time <= mEndTime; }
 	bool getHasEnded(float time) const { return time > mEndTime; }
@@ -60,9 +63,9 @@ public:
 	QuadInEaser(float startTime, float endTime, T start, T end): Easer<T>(startTime, endTime, start, end) {}
 	
 	T valueAt(float time) const override {
-	float t = clamp((time - this->mStartTime) / this->mTimeRange);
-	return this->mValueRange * t * t + this->mStartValue;
-}
+		float t = clamp((time - this->mStartTime) / this->mTimeRange);
+		return this->mValueRange * t * t + this->mStartValue;
+	}
 };
 
 template <typename T>
@@ -73,9 +76,9 @@ public:
 	QuadOutEaser(float startTime, float endTime, T start, T end): Easer<T>(startTime, endTime, start, end) {}
 	
 	T valueAt(float time) const override {
-	float t = clamp((time - this->mStartTime) / this->mTimeRange);
-	return -this->mValueRange * t * (t - 2) + this->mStartValue;
-}
+		float t = clamp((time - this->mStartTime) / this->mTimeRange);
+		return -this->mValueRange * t * (t - 2) + this->mStartValue;
+	}
 };
 
 template <typename T>
@@ -87,13 +90,13 @@ public:
 	
 	T valueAt(float time) const override {
 	
-	float t = clamp((time - this->mStartTime) / (this->mTimeRange / 2), 0.0f, 2.0f);
-	if (t < 1) {
-		return this->mValueRange / 2 * t * t + this->mStartValue;
+		float t = clamp((time - this->mStartTime) / (this->mTimeRange / 2), 0.0f, 2.0f);
+		if (t < 1) {
+			return this->mValueRange / 2 * t * t + this->mStartValue;
+		}
+		--t;
+		return -this->mValueRange / 2 * (t * (t-2) - 1) + this->mStartValue;
 	}
-	--t;
-	return -this->mValueRange / 2 * (t * (t-2) - 1) + this->mStartValue;
-}
 };
 
 
@@ -133,12 +136,20 @@ public:
 				return easer->valueAt(time);
 			}
 		}
-		return T();
+		return this->mStartValue;
 	}
 	
 	void clear() {
 		mEasers.clear();
 		this->mStartTime = this->mEndTime = 0;
+	}
+	
+	bool empty() const {
+		return mEasers.empty();
+	}
+	
+	size_t size() const {
+		return mEasers.size();
 	}
 	
 protected:
