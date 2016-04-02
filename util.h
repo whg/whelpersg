@@ -1,12 +1,14 @@
 #pragma once
 
 #include <algorithm>
+#include <string>
+#include <sstream>
 
 namespace whg {
 
 template<class T>
 size_t argmax(const T &iterable) {
-	size_t output;
+	size_t output = 0;
 	size_t i = 0;
 	typename T::value_type max = 0;
 	for (const auto &v : iterable) {
@@ -52,5 +54,13 @@ template <typename T>
 T clamp(T value, T min=0, T max=1) {
 	return std::min(max, std::max(value, min));
 }
+
+template <typename T>
+std::string toString(T value) {
+	std::stringstream ss;
+	ss << value;
+	return ss.str();
+}
+
 
 }
