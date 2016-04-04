@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <atomic>
 
+namespace whg {
+
 template <typename T>
 struct BaseData {
 	std::vector<T> data;
@@ -98,6 +100,23 @@ public:
 		return output;
 	}
 	
+	void grab(std::vector<T> &output) const {
+		size_t N = output.size();
+		if (mHead + N < this->mSize) {
+//			std::copy(this->data.begin(), this->data.end(), output.begin());
+			output.assign(this->data.begin()+mHead, this->data.begin()+mHead+N);
+		}
+		else {
+			size_t firstChunk = this->mSize - mHead;
+			size_t secondChunk = N - firstChunk;
+			std::copy(this->data.begin()+mHead, this->data.end(), output.begin());
+			
+			std::copy(this->data.begin(), this->data.begin()+secondChunk, output.begin()+firstChunk);
+		}
+		
+
+	}
+	
 protected:
 	size_t mHead, mTail;
 	
@@ -105,7 +124,7 @@ protected:
 };
 
 template<typename T>
-inline std::ostream& operator<<(std::ostream &os, BaseData<T> const &bd) {
+inline std::ostream& operator<<(std::ostream &os, BaseData<float> const &bd) {
 	os << "[";
 	for (int i =0 ; i < bd.data.size(); i++) {
 		os << bd.data[i] << (i == (bd.data.size()-1) ? "" : ", ");
@@ -165,3 +184,5 @@ protected:
 	std::atomic<size_t> mHead, mTail;
 
 };
+
+}
