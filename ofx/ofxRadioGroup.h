@@ -49,9 +49,11 @@ public:
             currentOn = "";
         }
         
-        ofxRadioGroupEventArgs e;
-        e.name = currentOn;
-        ofNotifyEvent(changeEvent, e);
+        if (currentOn != "") {
+            ofxRadioGroupEventArgs e;
+            e.name = currentOn;
+            ofNotifyEvent(changeEvent, e);
+        }
     }
     
     ofEvent<ofxRadioGroupEventArgs> changeEvent;
