@@ -3,12 +3,13 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
+#include <iterator>
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
 	os << "[";
-	for (int i = 0; i < vec.size(); i++) {
-		os << vec[i] << (i == (vec.size()-1) ? "" : ", ");
+    for (auto it = vec.begin(); it != vec.end(); ++it) {
+        os << *it << (std::next(it) == vec.end() ? "" : ", ");
 	}
 	return os << "]";
 }
@@ -16,11 +17,8 @@ inline std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
 template<typename K, typename V>
 inline std::ostream& operator<<(std::ostream &os, const std::unordered_map<K, V> &map) {
 	os << "{";
-	uint i = 0;
 	for (auto it = map.begin(); it != map.end(); ++it) {
-		auto pair = *it;
-		
-		os << pair.first << ": " << pair.second << (++i == map.size() ? "" : ", ");
+		os << it->first << ": " << it->second << (std::next(it) == map.end() ? "" : ", ");
 	}
 	return os << "}";
 }
@@ -86,7 +84,7 @@ public:
 	
 	T getMaxKey() const {
 		uint max = 0;
-		T output;
+		T output = T();
 		for (const auto &pair : mMap) {
 			if (pair.second > max) {
 				output = pair.first;
@@ -133,6 +131,8 @@ protected:
 	std::deque<T> mHistory;
 	size_t mIntervalSize;
 };
+
+
 
 
 } // namespace whg
