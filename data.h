@@ -133,6 +133,69 @@ protected:
 };
 
 
+template<typename T>
+struct KalmanFilter1D {
+    
+    KalmanFilter1D(): q(1), r(1), p(1) {}
+    
+    KalmanFilter1D(T q, T r, T inital):
+    q(q), r(r), p(1), x(inital) {}
+    
+    T update(T measurement) {
+        p+= q;
+        
+        k = p / (p + r);
+        x = x + k * (measurement - x);
+        p = (1 - k) * p;
+        
+//        printf("%f,%f,%f,%f,%f\n", p, q, k, x, r);
+        return x;
+    }
+    
+    T q; //process noise covariance
+    T r; //measurement noise covariance
+    T x; //value
+    T p; //estimation error covariance
+    T k; //kalman gain
+};
+
+template <typename T>
+struct DecreasingValue {
+    
+    DecreasingValue(): mChangeRate(1) {}
+    DecreasingValue(float r): mChangeRate(r) {}
+    
+    virtual T update(float currentTimef, T value) {
+        if (value >= mValue) {
+            mValue = value;
+        }
+        else {
+//            mValue-= mChangeRate * currentTimef;
+        }
+        
+        return mValue;
+    }
+    
+    void setChangeRate(float r) { mChangeRate = r; }
+    
+    T mValue;
+    float mChangeRate;
+};
+
+template <typename T>
+struct ContantChangeValue : public DecreasingValue<T> {
+    
+    T update(float currentTimef, T value) override {
+        float change = this->mChangeRate * currentTimef;
+        if (value > this->mValue + change) {
+            this->mValue+= change;
+        }
+        else if (value < this->mValue - change) {
+            this->mValue-= change;
+        }
+        return this->mValue;
+    }
+};
 
 
 } // namespace whg
