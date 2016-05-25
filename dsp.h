@@ -494,10 +494,16 @@ inline std::vector<std::vector<T>> melFilterbank(MelFilterSettings s) {
 			output[band][bin] = v;
 			sum+= v;
 		}
-		
-//		for (uint bin = lowerBin; bin < upperBin; bin++) {
-//			output[band][bin] /= sum;
-//		}
+
+        // this is really cheating... (or just wrong)
+        // we want to boost the higher frequencies,
+        // but have some kind of normalisation at the same time
+        float factor = (band+1) / static_cast<float>(s.numBands);
+        
+		for (uint bin = lowerBin; bin < upperBin; bin++) {
+			output[band][bin] /= sum; // normalise
+            output[band][bin] *= std::pow(factor, 1.2f) * s.numBands * 0.5f; // boost
+		}
 	}
 	
 	return output;
