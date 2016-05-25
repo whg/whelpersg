@@ -51,7 +51,6 @@ std::vector<T> dot(const std::vector<std::vector<T>> &a, const std::vector<T> &b
 	
 	if (N == aCols) {
 		output.resize(aRows);
-		T sum;
 		for (size_t i = 0; i < aRows; i++) {
 			output[i] = dot(a[i], b);
 		}
@@ -142,7 +141,7 @@ struct ConsecutiveMatch {
 };
 
 inline std::ostream& operator<<(std::ostream &os, const ConsecutiveMatch &cm) {
-	return os << "(" << cm.range.first << ", " << cm.range.second << ")";
+	return os << "(" << cm.range.first << " -> " << cm.range.second << ", " << cm.getLength() << ")";
 }
 
 template <typename T>
