@@ -13,7 +13,7 @@ namespace whg {
 template<typename T>
 class OnsetDetector {
 	
-	const float DIFF_MARGIN = 2.0f;
+	const float DIFF_MARGIN = 1.5f;
 	const long SLEEP_TICKS = 24;
 
 public:
@@ -40,6 +40,8 @@ public:
 			mAverageDiff = whg::mean(mHistory.data());
 		}
 		
+//        std::cout << mCurrentState << ": " << mAverageDiff << ", " << diff << ", " << mSleepCounter << std::endl;
+        
 		mSleepCounter--;
 		return mCurrentState;
 
@@ -48,7 +50,7 @@ public:
 	bool getCurrentState() const { return mCurrentState; }
 	
 protected:
-	whg::HistoryQueue<float> mHistory;
+	whg::HistoryQueue<T> mHistory;
 	
 	T mAverageDiff, mLastValue;
 	long mSleepCounter;

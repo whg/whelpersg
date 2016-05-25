@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include <sstream>
+#include <iterator>
 
 namespace whg {
 
@@ -48,6 +49,28 @@ std::vector<size_t> argsort(InputIterator begin, InputIterator end) {
 	});
 	
 	return output;
+}
+
+
+/// return a vector of bools where true means that the value at index i is above i+1 and i-1
+/// first and last are always false
+template<class InputIterator>
+std::vector<bool> localmax(InputIterator begin, InputIterator end) {
+    
+    size_t N = static_cast<size_t>(end - begin);
+    std::vector<bool> output(N, false);
+    typename InputIterator::value_type lastValue = *begin;
+
+    // TODO: stop at end - 1?
+    for (size_t i = 0; begin != end; ++begin, ++i) {
+        if (*begin > lastValue && *begin > *std::next(begin)) {
+            output[i] = true;
+        }
+        
+        lastValue = *begin;
+    }
+    
+    return output;
 }
 
 template <typename T>

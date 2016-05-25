@@ -1,5 +1,7 @@
 #pragma once
 
+#include <deque>
+
 namespace whg {
 
 template <typename T>
@@ -105,6 +107,7 @@ class EasingChain : public Easer<T> {
 public:
 	
 	EasingChain(): Easer<T>(0, 0, 0) {}
+	EasingChain(float duration, T start, T end): Easer<T>(duration, start, end) {}
 	
 	template <class EasingClass>
 	void extend(float duration, T endValue) {
@@ -122,21 +125,54 @@ public:
 		}
 		else {
 			this->mStartTime = easer->mStartTime;
+			this->mStartValue = easer->mStartValue;
 		}
 		
 		this->mEndTime = easer->mEndTime;
+		this->mEndValue = easer->mEndValue;
 		
 		mEasers.push_back(std::unique_ptr<Easer<T>>(easer));
 		
 	}
 	
 	T valueAt(float time) const {
+		if (time >= this->mEndTime) {
+			return this->mEndValue;
+		}
+		
 		for (const auto &easer : mEasers) {
 			if (time < easer->mEndTime) {
 				return easer->valueAt(time);
 			}
 		}
+		
 		return this->mStartValue;
+	}
+	
+	T update(float time) {
+		
+		if (time >= this->mEndTime) {
+			mEasers.clear();
+			this->mCurrentValue = this->mEndValue;
+		}
+		else {
+			
+			size_t i = 0;
+			for (const auto &easer : mEasers) {
+				if (time < easer->mEndTime) {
+					this->mCurrentValue = easer->valueAt(time);
+					break;
+				}
+				i++;
+			}
+
+			while (i > 0) {
+				mEasers.pop_front();
+				i--;
+			}
+		}
+	
+		return this->mCurrentValue;
 	}
 	
 	void clear() {
@@ -153,7 +189,7 @@ public:
 	}
 	
 protected:
-	std::vector<std::unique_ptr<Easer<T>>> mEasers;
+	std::deque<std::unique_ptr<Easer<T>>> mEasers;
 };
 
 

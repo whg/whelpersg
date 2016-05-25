@@ -191,7 +191,6 @@ public:
 
 #define FFTW_COPY_OUTPUT 1
 
-//TODO: make fftw allocator!!!
 
 class RealFFT : public BaseFFT<float>, public WindowMixin<float> {
 public:
@@ -383,9 +382,6 @@ std::vector<T> fftFrequencies(TransformSettings s) {
 	return output;
 }
 
-
-//#include <deque>
-
 template <typename T>
 inline std::vector<std::vector<T>> chromaFilterbank(ChromaFilterSettings s) {
 	
@@ -480,7 +476,7 @@ inline std::vector<std::vector<T>> melFilterbank(MelFilterSettings s) {
 	for (uint band = 0; band < s.numBands; band++) {
 		
 		double lowerFreq = melFreqs[band];
-		double middleFreq = melFreqs[band+1];
+		double middleFreq = melFreqs[band + 1];
 		double upperFreq = melFreqs[band + 2];
 
 		uint lowerBin = lowerFreq * s.size / s.sampleRate;
