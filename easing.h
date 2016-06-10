@@ -113,6 +113,21 @@ public:
 	void extend(float duration, T endValue) {
 		add(new EasingClass(duration, mEasers.back()->mEndValue, endValue));
 	}
+    
+    void extend(std::string className, float duration, T endValue) {
+        if (className == "LinearEaser") {
+            add(new LinearEaser<T>(duration, mEasers.back()->mEndValue, endValue));
+        }
+        else if (className == "QuadInEaser") {
+            add(new QuadInEaser<T>(duration, mEasers.back()->mEndValue, endValue));
+        }
+        else if (className == "QuadOutEaser") {
+            add(new QuadOutEaser<T>(duration, mEasers.back()->mEndValue, endValue));
+        }
+        else if (className == "QuadInOutEaser") {
+            add(new QuadInOutEaser<T>(duration, mEasers.back()->mEndValue, endValue));
+        }
+    }
 	
 	void add(Easer<T> *easer) {
 		
@@ -134,6 +149,22 @@ public:
 		mEasers.push_back(std::unique_ptr<Easer<T>>(easer));
 		
 	}
+    
+    template<typename... Args>
+    void add(std::string className, Args... args) {
+        if (className == "LinearEaser") {
+            add(new LinearEaser<T>(args...));
+        }
+        else if (className == "QuadInEaser") {
+            add(new QuadInEaser<T>(args...));
+        }
+        else if (className == "QuadOutEaser") {
+            add(new QuadOutEaser<T>(args...));
+        }
+        else if (className == "QuadInOutEaser") {
+            add(new QuadInOutEaser<T>(args...));
+        }
+    }
 	
 	T valueAt(float time) const {
 		if (time >= this->mEndTime) {
