@@ -6,6 +6,9 @@
 
 #define SOURCE_PREFIX "~"
 
+
+// TODO: auto save when we want, not all the time
+
 shared_ptr<ofxParameterMapper> parameterMapper = nullptr;
 ofMutex ofxParameterMapper::addSourceMutex;
 
@@ -98,20 +101,21 @@ void ofxParameterMapper::updateOscSourceMapping(bool &b) {
                     }
                     else {
                         auto &params = mParamMap[command.toString()];
-                        for (auto it = params.begin(); it != params.end(); ++it) {
+                        for (auto it = params.begin(); it != params.end();) {
                             if (*it == bg) {
                                 params.erase(it);
-                                break;
+                            }
+                            else {
+                                ++it;
                             }
                         }
-
                     }
                 }
             }
         }
     }
     
-    save();
+//    save();
 }
 
 
@@ -141,7 +145,6 @@ void ofxParameterMapper::newOscMessage(ofxOscCenterNewMessageArgs &args) {
 		else {
 			float value = args.message.getArgAsFloat(0);
 			modifyParams(mParamMap[commandString], value, 0.0f, 1.0f, commandString);
-			cout << value << endl;
 		}
     }
 }
@@ -349,7 +352,7 @@ void ofxParameterMapper::Sources::updateOscList(ofxOscCenterCommandArgs &args) {
 
 void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &command, bool value) {
     
-    ofScopedLock lock(ofxParameterMapper::addSourceMutex);
+//    ofScopedLock lock(ofxParameterMapper::addSourceMutex);
 
     if (mTracks.count(command.track) == 0) {
         mTracks[command.track].setup(command.track);
@@ -357,7 +360,14 @@ void ofxParameterMapper::Sources::addParameter(const ofxOscCenter::Command &comm
         getPanel()->add(&mTracks[command.track]);
     }
     else {
-        if (mTracks[command.track].getControl(command.address) != nullptr) {
+        auto *gui = mTracks[command.track].getControl(command.address);
+
+        if (gui != nullptr) {
+            for (auto &source : mOscSources) {
+                if (source.getName() == command.address) {
+                    source.set(value);
+                }
+            }
             return;
         }
     }
