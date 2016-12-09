@@ -172,7 +172,8 @@ struct DecreasingValue {
         else {
 //            mValue-= mChangeRate * currentTimef;
         }
-        
+        this->mLastUpdate = currentTimef;
+
         return mValue;
     }
     
@@ -180,19 +181,25 @@ struct DecreasingValue {
     
     T mValue;
     float mChangeRate;
+    float mLastUpdate;
 };
 
 template <typename T>
 struct ContantChangeValue : public DecreasingValue<T> {
     
+    ContantChangeValue(float r): DecreasingValue<T>(r) {}
+
+    
     T update(float currentTimef, T value) override {
-        float change = this->mChangeRate * currentTimef;
+        float change = this->mChangeRate * (currentTimef - this->mLastUpdate);
         if (value > this->mValue + change) {
             this->mValue+= change;
         }
         else if (value < this->mValue - change) {
             this->mValue-= change;
         }
+    
+        this->mLastUpdate = currentTimef;
         return this->mValue;
     }
 };

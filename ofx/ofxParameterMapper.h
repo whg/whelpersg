@@ -99,7 +99,7 @@ void ofxParameterMapper::modifyParams(const vector<ofxBaseGui*> &baseGuis, T v, 
         
         if (type == typeid(ofParameter<int>).name()) {
             auto &intParam = param->cast<int>();
-            intParam.set(ofMap(v, min, max, intParam.getMin(), intParam.getMax(), true));
+            intParam.set(std::round(ofMap(v, min, max, intParam.getMin(), intParam.getMax(), true)));
         }
         else if (type == typeid(ofParameter<float>).name()) {
             auto &floatParam = param->cast<float>();
