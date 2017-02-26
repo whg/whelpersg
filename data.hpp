@@ -4,6 +4,8 @@
 #include <deque>
 #include <unordered_map>
 #include <iterator>
+#include <algorithm>
+#include <numeric>
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
@@ -204,5 +206,29 @@ struct ContantChangeValue : public DecreasingValue<T> {
     }
 };
 
+template <typename T>
+struct MovingAverage {
+    
+    MovingAverage( size_t length ): mHistoryLength( length ) {}
+    
+    void setHistoryLength( size_t length ) { mHistoryLength = length; }
+    
+    T update( T newValue ) {
+        mValues.emplace_back( newValue );
+        while ( mValues.size() > mHistoryLength ) {
+            mValues.pop_front();
+        }
+        T sum = std::accumulate( mValues.begin(), mValues.end(), static_cast<T>( 0 ) );
+        mCurrentAverage = sum / std::min( mHistoryLength, mValues.size() );
+        
+        return mCurrentAverage;
+    }
+    
+    T getCurrent() { return mCurrentAverage; }
+    
+    std::deque<T> mValues;
+    size_t mHistoryLength;
+    T mCurrentAverage;
+};
 
 } // namespace whg
