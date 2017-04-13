@@ -22,7 +22,8 @@ struct Reader {
             if (line[0] == '[') {
                 std::smatch matches;
                 std::regex expr("\\[(-?\\d+),(-?\\d+),(-?\\d+)\\]");
-                std::regex_match(std::string(line), matches, expr);
+				std::string sline(line);
+                std::regex_match(sline, matches, expr);
 
                 if (mCallback) {
                     try {
@@ -56,7 +57,13 @@ using namespace std;
 using namespace std::chrono;
 
 int main(int argc, char *argv[]) {
-    Serial serial("tty.usbserial-A102SX3F", 9600);
+
+	if (argc < 2) {
+		cout << "usage: serialtest <device>" << endl;
+		return 1;
+	}
+	cout << argv[1] << endl;
+    Serial serial(argv[1], B9600);
     Reader reader;
     Something something;
 
@@ -68,6 +75,7 @@ int main(int argc, char *argv[]) {
             if (serial.getNumBytesAvailable()) {
                 reader.add(serial.readAllCharacters());
             }
+
         }
     });
 

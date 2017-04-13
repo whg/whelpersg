@@ -1,4 +1,3 @@
-
 #include <string>
 #include <fcntl.h>
 #include <termios.h>
@@ -6,6 +5,8 @@
 #include <getopt.h>
 #include <dirent.h>
 #include <memory>
+#include <unistd.h>
+
 
 class Serial {
 public:
@@ -62,15 +63,8 @@ public:
 
     std::string readAllCharacters() const {
         size_t length = getNumBytesAvailable();
-        // if (length == 0) {
-        //     void *data;
-        //     read(data, 1);
-        //     length = getNumBytesAvailable();
-        // }
-        // std::cout << "length = " << length << std::endl;
         char characters[length];
         read(&characters, length);
-        // std::cout << "success = " << read(&characters, length) << std::endl;
         return std::string(&characters[0], length);
     }
 
