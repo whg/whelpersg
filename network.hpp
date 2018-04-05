@@ -34,6 +34,11 @@ public:
 		
 		return send(mSocketDescriptor, str.c_str(), str.size(), 0) > 0;
 	}
+    
+    bool sendDataRaw(const unsigned char *data, size_t N) {
+        
+        return send(mSocketDescriptor, data, N, 0) > 0;
+    }
 	
 protected:
 	enum { NOT_SET = -1 };
